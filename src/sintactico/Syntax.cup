@@ -1,0 +1,402 @@
+package sintactico;
+
+import java_cup.runtime.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.io.InputStream;
+import lexico.Main;
+// http://www2.cs.tum.edu/projects/cup/docs.php
+// https://www.youtube.com/watch?v=AQkd5AwjV1E
+// http://themfgeek.blogspot.com/2012/10/sintaxis-cup.html
+// https://www.youtube.com/watch?v=bBuWPmDrF5M
+// https://youtu.be/tSaPDOT2I_4?t=1120
+// https://github.com/jflex-de/jflex/blob/master/jflex/examples/cup-java/src/main/cup/java12.cup
+// http://staff.polito.it/silvano.rivoira/HowToWriteYourOwnCompiler.htm
+// https://www.cs.auckland.ac.nz/courses/compsci330s1c/lectures/330ChaptersPDF/Chapt6.pdf
+// Días de trabajo: Octubre: 17, 19, 20, 21
+
+// TODO: QUITAR -> case, repeat y arreglos.
+
+parser code
+{:
+    @Override
+    protected int error_sync_size(){
+        return 1;
+    }
+
+    private Symbol tokenError;
+
+    // Metodo al que se llama automaticamente ante algun error sintactico
+    public void syntax_error(Symbol s)
+    {
+        try
+        {
+            String lexema = s.value.toString();
+            int fila = s.left + 1;
+            int columna = s.right;
+            tokenError = s;
+
+            //System.err.println("Error sintactico en la linea: " + fila + " y columna: " + columna + ". No se esperaba el componente: " + lexema);
+        }catch(Exception e) {}
+    }
+
+    // Metodo al que se llama en el momento en que ya no es posible una recuperacion de errores
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception
+    {
+        try
+        {
+            String lexema = s.value.toString();
+            int fila = s.left + 1;
+            int columna = s.right;
+
+            String mensaje = "Error sintáctico irrecuperable, con el símbolo: " + lexema;
+            ErrorUI(mensaje, lexema, fila, columna);
+
+            //System.err.println("Error sintactico inrrecuperable en la linea: " + fila + " y columna: " + columna + ". No se esperaba el componente: " + lexema);
+        }catch(Exception e) {}
+    }
+
+    public void report_error(String message, Object info)
+    {
+        if (info instanceof String){
+            System.out.println(message);
+        }
+        else {
+            if (info instanceof Symbol){
+                String m = "Error sintático en: " + message;
+                Symbol s = (Symbol)info;
+                m += ", con el símbolo: \"" + s.value.toString() + "\"";
+                ErrorUI(m, s.value.toString(), (s.left+1), s.right);
+            }else{
+                System.err.println(message);
+            }
+        }
+    }
+
+    public void ErrorUI(String pMsg, String token, int linea, int columna)
+    {
+        String msg = pMsg + ". En la línea: " + (linea) + ", columna: " + (columna) + ".";
+
+        Main.miInstancia.agregarErrorSintactico(msg);
+    }
+:}
+
+// |-------------------- TERMINALES --------------------| //
+
+// Operadores
+terminal OPERADOR,
+        OPERADOR_INCREMENTO,
+        OPERADOR_DISMINUCION,
+        OPERADOR_MAYOR_IGUAL_QUE,
+        OPERADOR_MAYOR_QUE,
+        OPERADOR_MENOR_IGUAL_QUE,
+        OPERADOR_MENOR_QUE,
+        OPERADOR_ADICION,
+        OPERADOR_SUSTRACCION,
+        OPERADOR_MULTIPLICACION,
+        OPERADOR_DIVISION,
+        OPERADOR_PARENTESIS_ABRIR,
+        OPERADOR_PARENTESIS_CERRAR,
+        OPERADOR_CORCHETE_ABRIR,
+        OPERADOR_CORCHETE_CERRAR,
+        OPERADOR_ASIGNACION_1, // :=
+        OPERADOR_ASIGNACION_2, // =
+        OPERADOR_DIFERENTE_DE,
+        OPERADOR_ASIGNACION_ADICION,
+        OPERADOR_ASIGNACION_SUSTRACCION,
+        OPERADOR_ASIGNACION_MULTIPLICACION,
+        OPERADOR_ASIGNACION_DIVISION,
+        OPERADOR_DESPLAZAMIENTO_DERECHA,
+        OPERADOR_DESPLAZAMIENTO_IZQUIERDA,
+        OPERADOR_ASIGNACION_DESPLAZAMIENTO_DERECHA,
+        OPERADOR_ASIGNACION_DESPLAZAMIENTO_IZQUIERDA,
+
+        OPERADOR_COMA,
+        OPERADOR_PUNTO_Y_COMA,
+        OPERADOR_DOS_PUNTOS,
+
+        OR, AND, NOT,
+
+        MOD, DIV;
+
+terminal IDENTIFICADOR,
+        LITERAL_NUM_FLOTANTE,
+        LITERAL_STRING,
+        LITERAL_NUM_ENTERO,
+        PALABRA_RESERVADA;
+
+terminal PROGRAM, BEGIN, END, CONST, VAR, FUNCTION, PROCEDURE, READ, WRITE;
+
+terminal IF, THEN, ELSE, WHILE, REPEAT, UNTIL, FOR, TO, DO;
+
+terminal TRUE, FALSE;
+
+terminal INT, LONGINT, SHORTINT, CHAR, STRING, BOOLEAN, REAL;
+
+terminal ERROR_IDENTIFICADOR,
+        ERROR_LITERAL,
+        ERROR_PALABRA_RESERVADA,
+        ERROR_OPERADOR;
+
+// |-------------------- NO TERMINALES --------------------| //
+
+non terminal Symbol inicio, programa, encabezado, cuerpo, _cuerpo, variables, _variables, __variables, ___variables,
+            constantes, _constantes, __constantes, tipos, declarar_datos, declarar_func_proc, instrucciones,
+            declarar_funciones, declarar_procedimientos, asignar_valores_1, asignar_valores_2, parametros_entrada,
+            _parametros_entrada, __parametros_entrada, retorno_funcion, expr_aritmeticas, _expr_aritmeticas,
+            operadores_aritmeticos, _operadores_aritmeticos, __operadores_aritmeticos, ___operadores_aritmeticos,
+            estruc_de_control, parametros_llamada_func, _parametros_llamada_func, llamar_func_o_proc, expr_read_write,
+            expr_read, _expr_read, expr_write, _expr_write,
+
+            sentencia_if, _sentencia_if, expr_booleanas, sentencia_else, tokens, _tokens,
+            _expr_booleanas, sentencia_while, sentencia_for, operadores_booleanos, operadores_booleanos_1,
+            tokens_boolean;
+
+non terminal Symbol epsilon;
+
+//no terminales "de paso" para el manejo de errores (evitar conflictos shift/reduce, etc.)
+//non terminal Symbol decl_variables, decl_constantes, _declarar_datos;
+
+start with inicio;
+
+// ------------------------------ Start --------------------------------------------------------------------------------
+
+inicio ::= programa;
+
+programa ::= PROGRAM IDENTIFICADOR encabezado
+            BEGIN
+            _cuerpo
+            END
+            | PROGRAM IDENTIFICADOR encabezado
+                BEGIN
+                _cuerpo
+                {:
+                    Symbol tokenAct = (Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-1);
+                    report_error("PROGRAM sin cierre END", tokenAct);
+                    RESULT = new Symbol(-1);
+                :}
+            | PROGRAM error
+                {:
+                    report_error("PROGRAM", tokenError);
+                    RESULT = new Symbol(-1);
+                :};
+
+// ------------------------------ Encabezado ---------------------------------------------------------------------------
+encabezado ::= declarar_datos declarar_func_proc
+            | error
+                {:
+                    report_error("Declaraciones globales", tokenError);
+                    RESULT = new Symbol(-1);
+                :};
+
+declarar_datos ::= constantes variables;
+
+constantes ::= CONST _constantes | epsilon
+            | CONST error
+                {:
+                    report_error("Declaración de constante", tokenError);
+                    RESULT = new Symbol(-1);
+                :}
+                OPERADOR_PUNTO_Y_COMA __constantes;
+_constantes ::= IDENTIFICADOR OPERADOR_ASIGNACION_2 tokens OPERADOR_PUNTO_Y_COMA __constantes;
+__constantes ::= _constantes | epsilon;
+
+variables ::= VAR _variables | epsilon
+            | VAR error
+                {:
+                    report_error("Declaración de variable", tokenError);
+                    RESULT = new Symbol(-1);
+                :}
+                OPERADOR_PUNTO_Y_COMA ___variables;
+_variables ::= IDENTIFICADOR __variables OPERADOR_DOS_PUNTOS tipos OPERADOR_PUNTO_Y_COMA ___variables;
+__variables ::= OPERADOR_COMA IDENTIFICADOR __variables | epsilon;
+___variables ::= _variables | epsilon;
+
+declarar_func_proc ::= declarar_funciones declarar_func_proc
+                     | declarar_procedimientos declarar_func_proc
+                     | epsilon
+                     | FUNCTION error
+                         {:
+                             report_error("Declaración de función", tokenError);
+                             RESULT = new Symbol(-1);
+                         :}
+                         END declarar_func_proc
+                     | PROCEDURE error
+                          {:
+                              report_error("Declaración de procedimiento", tokenError);
+                              RESULT = new Symbol(-1);
+                          :}
+                          END declarar_func_proc;
+
+// ¡¡¡¡¡¡¡¡¡¡¡¡¡¡FALTA EL ERROR DE SI VIENE CON EL CUERPO Y NO TIENE EL RETORNO DE FUNCION!!!!!!!!!!!!!!!!!!!!!!!
+
+declarar_funciones ::= FUNCTION IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR OPERADOR_DOS_PUNTOS tipos
+                    declarar_datos
+                    BEGIN cuerpo asignar_valores_1 END
+                    |
+                    //este llama a retorno de funcion para que maneje el error
+                    FUNCTION IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR OPERADOR_DOS_PUNTOS tipos
+                    declarar_datos
+                    BEGIN /* sin cuerpo */ retorno_funcion END;
+
+declarar_procedimientos ::= PROCEDURE IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR
+                    declarar_datos
+                    BEGIN cuerpo END
+                    |
+                    PROCEDURE IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR
+                    declarar_datos
+                    BEGIN /* sin cuerpo */ END;
+
+retorno_funcion ::= IDENTIFICADOR OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA
+                    | /* epsilon */
+                    {:  //es aceptado pero se reporta como error
+                        Symbol tokenAct = (Symbol)CUP$Syntax$stack.peek();
+                        report_error("Retorno de función", tokenAct);
+                        RESULT = new Symbol(-1);
+                    :};
+
+parametros_entrada ::= _parametros_entrada | epsilon;
+_parametros_entrada ::= tipos IDENTIFICADOR __parametros_entrada;
+__parametros_entrada ::= OPERADOR_COMA _parametros_entrada | epsilon;
+
+// ------------------------------ Cuerpo -------------------------------------------------------------------------------
+
+cuerpo ::= cuerpo instrucciones
+         | cuerpo estruc_de_control
+         | instrucciones
+         | estruc_de_control
+         | error
+            {:
+                report_error("Cuerpo", tokenError);
+                RESULT = new Symbol(-1);
+            :};
+
+_cuerpo ::= cuerpo | epsilon;
+
+instrucciones ::= asignar_valores_1
+                | asignar_valores_2 OPERADOR_PUNTO_Y_COMA
+                | expr_read_write
+                | llamar_func_o_proc OPERADOR_PUNTO_Y_COMA
+                | error
+                     {:
+                         report_error("Expresión", tokenError);
+                         RESULT = new Symbol(-1);
+                     :}
+                     OPERADOR_PUNTO_Y_COMA;
+
+asignar_valores_1 ::= IDENTIFICADOR OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA; // a := 12, a := b() + 3 - (4/d)..., f(...)
+
+asignar_valores_2 ::= IDENTIFICADOR ___operadores_aritmeticos expr_aritmeticas // a += 12
+                    | IDENTIFICADOR __operadores_aritmeticos // a++, a--
+                    | __operadores_aritmeticos IDENTIFICADOR // ++a, --a
+                    | IDENTIFICADOR OPERADOR_ASIGNACION_1 IDENTIFICADOR __operadores_aritmeticos // a := b++
+                    | IDENTIFICADOR OPERADOR_ASIGNACION_1 __operadores_aritmeticos IDENTIFICADOR; // a := ++b
+
+llamar_func_o_proc ::= IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_llamada_func OPERADOR_PARENTESIS_CERRAR;
+
+parametros_llamada_func ::= expr_aritmeticas OPERADOR_COMA _parametros_llamada_func
+                        | expr_aritmeticas
+                        | epsilon;
+
+_parametros_llamada_func ::= expr_aritmeticas OPERADOR_COMA _parametros_llamada_func | tokens;
+
+expr_read_write ::= expr_read
+                  | expr_write;
+
+expr_read ::= READ OPERADOR_PARENTESIS_ABRIR _expr_read OPERADOR_PARENTESIS_CERRAR OPERADOR_PUNTO_Y_COMA
+                | READ error
+                    {:
+                        report_error("Función READ", tokenError);
+                        RESULT = new Symbol(-1);
+                    :}
+                    OPERADOR_PUNTO_Y_COMA;
+_expr_read ::= IDENTIFICADOR | epsilon; //_tokens | epsilon;
+
+expr_write ::= WRITE OPERADOR_PARENTESIS_ABRIR _tokens _expr_write OPERADOR_PARENTESIS_CERRAR OPERADOR_PUNTO_Y_COMA
+                | WRITE error
+                    {:
+                        report_error("Función WRITE", tokenError);
+                        RESULT = new Symbol(-1);
+                    :}
+                    OPERADOR_PUNTO_Y_COMA;
+_expr_write ::= OPERADOR_COMA _tokens _expr_write | epsilon;
+
+// ------------------------------ Estructuras de Control ---------------------------------------------------------------
+
+estruc_de_control ::= sentencia_if
+                    | sentencia_while
+                    | sentencia_for;
+
+sentencia_if ::= IF expr_booleanas THEN
+                 _cuerpo _sentencia_if
+                 END
+                 | IF error
+                     {:
+                         report_error("Sentencia IF", tokenError);
+                         RESULT = new Symbol(-1);
+                     :}
+                     END;
+
+_sentencia_if ::= sentencia_else | epsilon;
+
+sentencia_else ::= ELSE _cuerpo;
+
+sentencia_while ::= WHILE expr_booleanas DO
+                    BEGIN
+                    _cuerpo
+                    END
+                    | WHILE error
+                     {:
+                         report_error("Sentencia WHILE", tokenError);
+                         RESULT = new Symbol(-1);
+                     :}
+                     END;
+
+sentencia_for ::= FOR IDENTIFICADOR OPERADOR_ASIGNACION_1 tokens TO tokens DO
+                  BEGIN
+                  _cuerpo
+                  END
+                  | FOR error
+                     {:
+                         report_error("Sentencia FOR", tokenError);
+                         RESULT = new Symbol(-1);
+                     :}
+                     END;
+
+// ------------------------------ Expresiones --------------------------------------------------------------------------
+
+expr_aritmeticas ::= tokens _expr_aritmeticas
+                    | llamar_func_o_proc _expr_aritmeticas
+                    | OPERADOR_PARENTESIS_ABRIR expr_aritmeticas OPERADOR_PARENTESIS_CERRAR _expr_aritmeticas;
+
+_expr_aritmeticas ::= _operadores_aritmeticos expr_aritmeticas | epsilon;
+
+expr_booleanas ::= tokens_boolean _expr_booleanas
+            | tokens operadores_booleanos_1 tokens _expr_booleanas
+            | OPERADOR_PARENTESIS_ABRIR expr_booleanas OPERADOR_PARENTESIS_CERRAR _expr_booleanas;
+
+_expr_booleanas ::= AND expr_booleanas | OR expr_booleanas | epsilon;
+
+// ------------------------------ Símbolos -----------------------------------------------------------------------------
+
+operadores_aritmeticos ::= _operadores_aritmeticos | __operadores_aritmeticos | ___operadores_aritmeticos;
+_operadores_aritmeticos ::= OPERADOR_ADICION | OPERADOR_SUSTRACCION | OPERADOR_MULTIPLICACION | OPERADOR_DIVISION | MOD | DIV;
+__operadores_aritmeticos ::= OPERADOR_INCREMENTO | OPERADOR_DISMINUCION; // a++. a--
+___operadores_aritmeticos ::= OPERADOR_ASIGNACION_ADICION | OPERADOR_ASIGNACION_SUSTRACCION
+                             | OPERADOR_ASIGNACION_MULTIPLICACION | OPERADOR_ASIGNACION_DIVISION;
+
+operadores_booleanos ::= OPERADOR_MAYOR_QUE | OPERADOR_MAYOR_IGUAL_QUE | OPERADOR_MENOR_QUE | OPERADOR_MENOR_IGUAL_QUE
+                        | OPERADOR_DIFERENTE_DE;
+
+operadores_booleanos_1 ::= operadores_booleanos | OPERADOR_ASIGNACION_2;
+
+tokens ::= _tokens | tokens_boolean;
+_tokens ::= IDENTIFICADOR | LITERAL_NUM_ENTERO | LITERAL_NUM_FLOTANTE | LITERAL_STRING;
+
+tokens_boolean ::= TRUE | FALSE | NOT IDENTIFICADOR | NOT TRUE | NOT FALSE;
+
+tipos ::= INT | SHORTINT | LONGINT | REAL | STRING | CHAR | BOOLEAN;
+
+epsilon ::= {: RESULT = new Symbol(-1); :};
+
+// ------------------------------ Errores ------------------------------------------------------------------------------

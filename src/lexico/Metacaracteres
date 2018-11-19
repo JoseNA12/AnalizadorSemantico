@@ -1,0 +1,53 @@
+Metacaracteres 	Descripción
+. 	    Marca cualquier carácter (excepto el de nueva línea)
+^ 	    Marca el inicio de una cadena
+$ 	    Marca el final de una cadena
+\b 	    Marca el límite de una palabra
+x?  	Marca 0 ó 1 x, donde x es una expresión regular
+x* 	    Marca 0 o más x
+x+ 	    Marca 1 o más x
+x|y 	Marca x o y, una de las opciones
+[abc] 	Marca cualquier carácter del conjunto abc
+[a-z] 	Marca cualquier carácter comprendido entre a y z
+[^xyz] 	Marca cualquier carácter que no esté incluido en el conjunto xyz
+\w 	    Marca un carácter alfanumérico (lo mismo que [a-zA-Z0-9_])
+\s 	    Marca un espacio en blanco
+\t 	    Carácter de tabulación
+\n 	    Carácter de nueva línea
+\r 	    Carácter de retorno de carro
+\v 	    Tabulación vertical
+\a 	    Carácter de campana
+\e 	    Carácter Escape
+
+-------------------------------------------------------------------------------------------------------
+
+
+`x' empareja el caracter `x'
+`.' cualquier caracter (byte) excepto una línea nueva
+`[xyz]' una "clase de caracteres"; en este caso, el patrón empareja una `x', una `y', o una `z'
+`[abj-oZ]' una "clase de caracteres" con un rango; empareja una `a', una `b', cualquier letra desde la `j' hasta la `o', o una `Z'
+`[^A-Z]' una "clase de caracteres negada", es decir, cualquier caracter menos los que aparecen en la clase. En este caso, cualquier caracter EXCEPTO una letra mayúscula.
+`[^A-Z\n]' cualquier caracter EXCEPTO una letra mayúscula o una línea nueva
+`r*' cero o más r's, donde r es cualquier expresión regular
+`r+' una o más r's
+`r?' cero o una r (es decir, "una r opcional")
+`r{2,5}' donde sea de dos a cinco r's
+`r{2,}' | r(2)(r)* dos o más r's
+`r{4}' exactamente 4 r's
+`{nombre}' la expansión de la definición de "nombre" (ver más abajo)
+`"[xyz]\"foo"' la cadena literal: [xyz]"foo
+`\x' si x es una `a', `b', `f', `n', `r', `t', o `v', entonces la interpretación ANSI-C de \x. En otro caso, un literal `x' (usado para indicar operadores tales como `*')
+`\0' un caracter NUL (código ASCII 0)
+`\123' el caracter con valor octal 123
+`\x2a' el caracter con valor hexadecimal 2a
+`(r)' empareja una R; los paréntesis se utilizan para anular la precedencia (ver más abajo)
+`rs' la expresión regular r seguida por la expresión regular s; se denomina "concatenación"
+`r|s'  bien una r o una s
+`r/s' una r pero sólo si va seguida por una s. El texto emparejado por s se incluye cuando se determina si esta regla es el "emparejamiento más largo", pero se devuelve entonces a la entrada antes que se ejecute la acción. Así que la acción sólo ve el texto emparejado por r. Este tipo de patrones se llama "de contexto posterior". (Hay algunas combinaciones de r/s que flex no puede emparejar correctamente. See section Deficiencias / Errores, las notas a cerca del "contexto posterior peligroso".)
+`^r' una r, pero sólo al comienzo de una línea (es decir, justo al comienzo del análisis, o a la derecha después de que se haya analizado una línea nueva).
+`r$' una r, pero sólo al final de una línea (es decir, justo antes de una línea nueva). Equivalente a "r/\n". Fíjese que la noción de flex de una "línea nueva" es exáctamente lo que el compilador de C utilizado para compilar flex interprete como `\n'; en particular, en algunos sistemas DOS debe filtrar los \r's de la entrada used mismo, o explícitamente usar r/\r\n para "r$".
+`<s>r' una r, pero sólo en la condición de arranque s (See section Condiciones de arranque, para una discusión sobre las condiciones de arranque)
+`<s1,s2,s3>r' lo mismo, pero en cualquiera de las condiciones de arranque s1, s2, o s3
+`<*>r' una r en cualquier condición de arranque, incluso una exclusiva.
+`<<EOF>>' un fin-de-fichero
+`<s1,s2><<EOF>>' un fin-de-fichero en una condición de arranque s1 ó s2

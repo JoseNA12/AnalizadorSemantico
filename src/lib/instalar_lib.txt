@@ -1,0 +1,23 @@
+1) Primero, como convención, agregue una carpeta con los nombres 'libs' en su archivo src del proyecto.
+(Esto se puede hacer fácilmente usando el IDE mismo)
+
+2) luego copie o agregue su archivo de biblioteca (p. Ej .: archivo .jar) a la carpeta llamada 'libs'
+
+3) ahora puede ver el archivo de la biblioteca dentro de la carpeta libs. Ahora haz clic derecho en el
+   archivo y selecciona 'agregar como biblioteca'. Y esto arreglará todos los archivos relevantes en su programa
+    y la biblioteca estará directamente disponible para su uso.
+
+2do
+
+1- Archivo > Estructura del proyecto ...
+
+o presione Ctrl + Alt + Shift + S
+
+2- Configuración del proyecto > Módulos > Dependencias > Signo " + "> JAR o directorios ...
+
+3- Seleccione el archivo jar y haga clic en Aceptar, luego haga clic en otro botón Aceptar para confirmar
+
+4- Puede ver el archivo jar en la carpeta "Bibliotecas externas"
+
+Video tutorial:
+https://www.youtube.com/watch?v=w-KfjJdRas8&feature=youtu.be
