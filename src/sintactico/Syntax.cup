@@ -5,6 +5,10 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.InputStream;
 import lexico.Main;
+import semantico.Simbolo;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Stack;
 // http://www2.cs.tum.edu/projects/cup/docs.php
 // https://www.youtube.com/watch?v=AQkd5AwjV1E
 // http://themfgeek.blogspot.com/2012/10/sintaxis-cup.html
@@ -13,12 +17,14 @@ import lexico.Main;
 // https://github.com/jflex-de/jflex/blob/master/jflex/examples/cup-java/src/main/cup/java12.cup
 // http://staff.polito.it/silvano.rivoira/HowToWriteYourOwnCompiler.htm
 // https://www.cs.auckland.ac.nz/courses/compsci330s1c/lectures/330ChaptersPDF/Chapt6.pdf
-// Días de trabajo: Octubre: 17, 19, 20, 21
 
 // TODO: QUITAR -> case, repeat y arreglos.
 
 parser code
 {:
+    private Set<Simbolo> tablaSimbolos = new HashSet<Simbolo>();
+    private Stack<String> pilaSemantica = new Stack<String>();
+
     @Override
     protected int error_sync_size(){
         return 1;
