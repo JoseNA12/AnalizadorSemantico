@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Font?>
+<?import org.fxmisc.richtext.CodeArea?>
+
+<Pane maxHeight="625.0" maxWidth="1230.0" minHeight="625.0" minWidth="1205.0" prefHeight="625.0" prefWidth="1205.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="lexico.Main">
+   <children>
+      <TextArea fx:id="ta_insertar_texto_id" layoutX="615.0" layoutY="54.0" prefHeight="498.0" prefWidth="416.0" visible="false">
+         <font>
+            <Font name="Consolas" size="12.0" />
+         </font></TextArea>
+      <Separator layoutX="565.0" layoutY="38.0" orientation="VERTICAL" prefHeight="544.0" prefWidth="11.0" />
+      <Label layoutX="48.0" layoutY="37.0" text="Resultado:" />
+      <Button fx:id="btn_abrir_archivo_id" layoutX="1074.0" layoutY="557.0" mnemonicParsing="false" onAction="#btn_action_abrirArchivo" text="Abrir archivo" />
+      <Button fx:id="btn_procesar_id" layoutX="977.0" layoutY="557.0" mnemonicParsing="false" onAction="#probarLexerFile" prefHeight="25.0" prefWidth="84.0" text="Procesar" />
+      <TabPane layoutX="41.0" layoutY="38.0" prefHeight="544.0" prefWidth="516.0" tabClosingPolicy="UNAVAILABLE">
+        <tabs>
+          <Tab text="Tokens encontrados">
+               <content>
+                  <TableView fx:id="tv_tokens_encontrados_id" prefHeight="428.0" prefWidth="465.0">
+                    <columns>
+                      <TableColumn fx:id="tc_token_id" editable="false" prefWidth="110.0" text="Token" />
+                      <TableColumn fx:id="tc_tipo_token_id" editable="false" prefWidth="264.0" text="Tipo de Token" />
+                        <TableColumn fx:id="tc_linea_token_id" editable="false" minWidth="0.0" prefWidth="142.0" text="Línea" />
+                    </columns>
+                  </TableView>
+               </content>
+          </Tab>
+          <Tab text="Errores léxicos">
+               <content>
+                  <TableView fx:id="tv_errores_lexicos_id" prefHeight="428.0" prefWidth="465.0">
+                     <columns>
+                        <TableColumn fx:id="tc_error_id" editable="false" prefWidth="110.0" text="Error" />
+                        <TableColumn fx:id="tc_tipo_error_id" editable="false" prefWidth="264.0" text="Tipo de Error" />
+                        <TableColumn fx:id="tc_linea_error_id" editable="false" minWidth="0.0" prefWidth="142.0" text="Línea" />
+                     </columns>
+                  </TableView>
+               </content>
+          </Tab>
+            <Tab text="Errores sintácticos">
+              <content>
+                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                     <children>
+                        <TextArea fx:id="ta_errores_sintacticos_id" editable="false" prefHeight="515.0" prefWidth="516.0" wrapText="true">
+                           <font>
+                              <Font name="Consolas" size="12.0" />
+                           </font></TextArea>
+                     </children>
+                  </AnchorPane>
+              </content>
+            </Tab>
+        </tabs>
+      </TabPane>
+      <CodeArea fx:id="ca_insertar_texto_id" contextMenuYOffset="3.0" layoutX="583.0" layoutY="37.0" prefHeight="515.0" prefWidth="575.0" />
+   </children>
+</Pane>
