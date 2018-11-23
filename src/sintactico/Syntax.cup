@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.InputStream;
 import lexico.Main;
-import semantico.Simbolo;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
@@ -20,11 +19,19 @@ import java.util.Stack;
 
 // TODO: QUITAR -> case, repeat y arreglos.
 
+action code
+{:
+    TablaFunciones tF =new TablaFunciones();
+    TablaProcedimiento tP =new TablaProcedimiento();
+    TablaTypes tT =new TablaTypes();
+    TablaVariables tV =new TablaVariables();
+    ArrayList<String> listadeId = new ArrayList();
+    String tipo="",tipoaux="";
+    int nparametros;
+:}
+
 parser code
 {:
-    private Set<Simbolo> tablaSimbolos = new HashSet<Simbolo>();
-    private Stack<String> pilaSemantica = new Stack<String>();
-
     @Override
     protected int error_sync_size(){
         return 1;

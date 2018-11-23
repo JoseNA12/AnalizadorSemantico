@@ -59,6 +59,15 @@
                   </AnchorPane>
               </content>
             </Tab>
+            <Tab text="Errores semánticos">
+              <content>
+                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                     <children>
+                        <TextArea fx:id="ta_errores_semanticos_id" prefHeight="536.0" prefWidth="546.0" />
+                     </children>
+                  </AnchorPane>
+              </content>
+            </Tab>
             <Tab text="Tabla de símbolos">
               <content>
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" />

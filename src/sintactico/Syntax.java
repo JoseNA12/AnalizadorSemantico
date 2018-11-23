@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.InputStream;
 import lexico.Main;
-import semantico.Simbolo;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
@@ -563,9 +562,6 @@ public class Syntax extends java_cup.runtime.lr_parser {
   public int error_sym() {return 1;}
 
 
-
-    private Set<Simbolo> tablaSimbolos = new HashSet<Simbolo>();
-    private Stack<String> pilaSemantico = new Stack<String>();
 
     @Override
     protected int error_sync_size(){

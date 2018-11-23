@@ -39,6 +39,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import java_cup.runtime.*;
 
@@ -58,6 +59,8 @@ public class Main extends Application implements Cloneable  {
     @FXML public Button btn_abrir_archivo_id, btn_procesar_id;
 
     @FXML private TextArea ta_errores_sintacticos_id;
+    @FXML private TextArea ta_errores_semanticos_id;
+    @FXML private TextArea ta_codigo_ensamblador_id;
 
     @FXML public CodeArea ca_insertar_texto_id;
     private ExecutorService executor;
@@ -66,8 +69,11 @@ public class Main extends Application implements Cloneable  {
 
     private Stage miPrimaryStage;
 
-    private static final String[] KEYWORDS = arrayToLower(sym.terminalNames);
-
+    private static final String[] KEYWORDS = new ArrayList<String>(){
+        {
+            addAll(Arrays.asList(sym.terminalNames));
+            addAll(Arrays.asList(arrayToLower(sym.terminalNames)));
+        }}.toArray(new String[0]);
 
 
     @Override
@@ -373,6 +379,7 @@ public class Main extends Application implements Cloneable  {
         info_tabla_tokens.clear();
         info_tabla_errores.clear();
         ta_errores_sintacticos_id.clear();
+        ta_errores_semanticos_id.clear();
     }
 
     /**
@@ -442,6 +449,11 @@ public class Main extends Application implements Cloneable  {
     public void agregarErrorSintactico(String pError)
     {
         ta_errores_sintacticos_id.appendText("\n" + pError);
+    }
+
+    public void agregarErrorSemantico(String pError)
+    {
+        ta_errores_semanticos_id.appendText("\n" + pError);
     }
 
     // ============================ CodeArea ============================ \\
