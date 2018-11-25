@@ -8,6 +8,7 @@ import lexico.Main;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
+import semantico.Traductor.*;
 // http://www2.cs.tum.edu/projects/cup/docs.php
 // https://www.youtube.com/watch?v=AQkd5AwjV1E
 // http://themfgeek.blogspot.com/2012/10/sintaxis-cup.html
@@ -19,7 +20,14 @@ import java.util.Stack;
 
 import semantico.*;
 
-// TODO: QUITAR -> case, repeat y arreglos.
+
+action code
+{:
+    public PilaSemantica pilaSemantica = new PilaSemantica();
+    public DTO miDTO = new DTO();
+    public List<String> miLista = new ArrayList<>();
+    public String miToken = "";
+:}
 
 parser code
 {:
@@ -271,6 +279,9 @@ non terminal Symbol epsilon;
 
 //Esta es para ponerle el ámbito a cada variable dentro de la función/procedimiento
 non terminal Symbol declarar_datos_locales;
+
+precedence left OPERADOR_ADICION, OPERADOR_SUSTRACCION;
+precedence left OPERADOR_MULTIPLICACION, OPERADOR_DIVISION;
 
 start with inicio;
 
@@ -565,11 +576,12 @@ sentencia_for ::= FOR IDENTIFICADOR OPERADOR_ASIGNACION_1 tokens TO tokens DO
 
 // ------------------------------ Expresiones --------------------------------------------------------------------------
 
-expr_aritmeticas ::= tokens _expr_aritmeticas
+expr_aritmeticas ::= tokens:_tk /*{: miToken = _tk.value.toString(); RESULT = new Symbol(-1, _tk.value); :}*/ _expr_aritmeticas /*{: RESULT = new Symbol(-1, miToken); :}*/
                     | llamar_func_o_proc _expr_aritmeticas
-                    | OPERADOR_PARENTESIS_ABRIR expr_aritmeticas OPERADOR_PARENTESIS_CERRAR _expr_aritmeticas;
+                    | OPERADOR_PARENTESIS_ABRIR expr_aritmeticas:ea OPERADOR_PARENTESIS_CERRAR /*{: RESULT = new Symbol(-1, ea.value); :}*/ _expr_aritmeticas;
 
-_expr_aritmeticas ::= _operadores_aritmeticos expr_aritmeticas | epsilon;
+_expr_aritmeticas ::= _operadores_aritmeticos expr_aritmeticas:ea /*{: RESULT = new Symbol(-1, ea.value); :}*/
+                    | epsilon;
 
 expr_booleanas ::= tokens_boolean _expr_booleanas
             | tokens operadores_booleanos_1 tokens _expr_booleanas
@@ -580,44 +592,132 @@ _expr_booleanas ::= AND expr_booleanas | OR expr_booleanas | epsilon;
 // ------------------------------ Símbolos -----------------------------------------------------------------------------
 
 operadores_aritmeticos ::= _operadores_aritmeticos | __operadores_aritmeticos | ___operadores_aritmeticos;
-_operadores_aritmeticos ::= OPERADOR_ADICION | OPERADOR_SUSTRACCION | OPERADOR_MULTIPLICACION | OPERADOR_DIVISION | MOD | DIV;
-__operadores_aritmeticos ::= OPERADOR_INCREMENTO | OPERADOR_DISMINUCION; // a++. a--
+_operadores_aritmeticos ::= OPERADOR_ADICION:oa        {: /*pilaSemantica.push(oa.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_ADICION); miDTO.setOperador(sym.OPERADOR_ADICION); :}
+                          | OPERADOR_SUSTRACCION:os    {: /*pilaSemantica.push(os.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_SUSTRACCION); miDTO.setOperador(sym.OPERADOR_SUSTRACCION); :}
+                          | OPERADOR_MULTIPLICACION:om {: /*pilaSemantica.push(om.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_MULTIPLICACION); miDTO.setOperador(sym.OPERADOR_MULTIPLICACION); :}
+                          | OPERADOR_DIVISION:od       {: /*pilaSemantica.push(od.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_DIVISION); miDTO.setOperador(sym.OPERADOR_DIVISION); :}
+                          | MOD:mod                    {: /*pilaSemantica.push(mod.toString());*/ RESULT = new Symbol(-1, (Object) sym.MOD); miDTO.setOperador(sym.MOD); :}
+                          | DIV:div                    {: /*pilaSemantica.push(div.toString());*/ RESULT = new Symbol(-1, (Object) sym.DIV); miDTO.setOperador(sym.DIV); :}
+                          ;
+__operadores_aritmeticos ::= OPERADOR_INCREMENTO:oi {: RESULT = new Symbol(-1, oi.toString()); :}
+                          | OPERADOR_DISMINUCION:od {: RESULT = new Symbol(-1, od.toString()); :}
+                          ; // a++. a--
+
 ___operadores_aritmeticos ::= OPERADOR_ASIGNACION_ADICION | OPERADOR_ASIGNACION_SUSTRACCION
                              | OPERADOR_ASIGNACION_MULTIPLICACION | OPERADOR_ASIGNACION_DIVISION;
 
-operadores_booleanos ::= OPERADOR_MAYOR_QUE | OPERADOR_MAYOR_IGUAL_QUE | OPERADOR_MENOR_QUE | OPERADOR_MENOR_IGUAL_QUE
-                        | OPERADOR_DIFERENTE_DE;
+operadores_booleanos ::= OPERADOR_MAYOR_QUE:omaq         {: RESULT = new Symbol(-1, omaq.toString()); :}
+                       | OPERADOR_MAYOR_IGUAL_QUE:omaiq  {: RESULT = new Symbol(-1, omaiq.toString()); :}
+                       | OPERADOR_MENOR_QUE:omeq         {: RESULT = new Symbol(-1, omeq.toString()); :}
+                       | OPERADOR_MENOR_IGUAL_QUE:omeiq  {: RESULT = new Symbol(-1, omeiq.toString()); :}
+                       | OPERADOR_DIFERENTE_DE:odd       {: RESULT = new Symbol(-1, odd.toString()); :}
+                       ;
 
 operadores_booleanos_1 ::= operadores_booleanos | OPERADOR_ASIGNACION_2;
 
-tokens ::= _tokens | tokens_boolean;
+tokens ::= _tokens:tk {: RESULT = new Symbol(-1, tk.value); :}
+        | tokens_boolean;
 _tokens ::= IDENTIFICADOR:id
             {:
+                /*pilaSemantica.push(id.toString());*/ RESULT = new Symbol(-1, id.toString());
+
                 tablaSimbolos.agregarParametroLlamada(id.toString());
                 tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
             :}
-        | LITERAL_NUM_ENTERO {: tablaSimbolos.agregarParametroLlamada(TipoDato.INT); :}
-        | LITERAL_NUM_FLOTANTE {: tablaSimbolos.agregarParametroLlamada(TipoDato.REAL); :}
-        | LITERAL_STRING {: tablaSimbolos.agregarParametroLlamada(TipoDato.STRING); :};
+        | LITERAL_NUM_ENTERO:lne
+          {:
+                /*pilaSemantica.push(lne.toString());*/ RESULT = new Symbol(-1, lne.toString());
 
-tokens_boolean ::= TRUE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :}
-        | FALSE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :}
+                tablaSimbolos.agregarParametroLlamada(TipoDato.INT);
+          :}
+        | LITERAL_NUM_FLOTANTE:lnf
+          {:
+                /*pilaSemantica.push(lnf.toString());*/ RESULT = new Symbol(-1, lnf.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.REAL);
+          :}
+        | LITERAL_STRING:ls
+          {:
+                /*pilaSemantica.push(ls.toString());*/ RESULT = new Symbol(-1, ls.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.STRING);
+          :}
+        ;
+
+tokens_boolean ::= TRUE:True
+           {:
+                RESULT = new Symbol(-1, True.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+           :}
+        | FALSE:False
+            {:
+                RESULT = new Symbol(-1, False.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+            :}
         | NOT IDENTIFICADOR:id
             {:
+                RESULT = new Symbol(-1, id.toString());
+
                 tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
                 tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
             :}
-        | NOT TRUE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :}
-        | NOT FALSE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :} ;
+        | NOT TRUE:nt
+            {:
+                RESULT = new Symbol(-1, nt.toString());
 
-tipos ::= INT {: tablaSimbolos.agregarTipoDato(TipoDato.INT); :}
-        | SHORTINT {: tablaSimbolos.agregarTipoDato(TipoDato.SHORTINT); :}
-        | LONGINT {: tablaSimbolos.agregarTipoDato(TipoDato.LONGINT); :}
-        | REAL {: tablaSimbolos.agregarTipoDato(TipoDato.REAL); :}
-        | STRING {: tablaSimbolos.agregarTipoDato(TipoDato.STRING); :}
-        | CHAR {: tablaSimbolos.agregarTipoDato(TipoDato.CHAR); :}
-        | BOOLEAN {: tablaSimbolos.agregarTipoDato(TipoDato.BOOLEAN); :} ;
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+            :}
+        | NOT FALSE:nf
+            {:
+                RESULT = new Symbol(-1, nf.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+            :}
+            ;
+
+tipos ::= INT:i
+        {:
+            RESULT = new Symbol(-1, i.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.INT);
+        :}
+        | SHORTINT:si
+        {:
+            RESULT = new Symbol(-1, si.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.SHORTINT);
+        :}
+        | LONGINT:li
+        {:
+            RESULT = new Symbol(-1, li.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.LONGINT);
+        :}
+        | REAL:r
+        {:
+            RESULT = new Symbol(-1, r.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.REAL);
+        :}
+        | STRING:s
+        {:
+            RESULT = new Symbol(-1, s.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.STRING);
+        :}
+        | CHAR:c
+        {:
+            RESULT = new Symbol(-1, c.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.CHAR);
+        :}
+        | BOOLEAN:b
+        {:
+            RESULT = new Symbol(-1, b.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.BOOLEAN);
+        :} ;
 
 epsilon ::= {: RESULT = new Symbol(-1); :};
-
-// ------------------------------ Errores ------------------------------------------------------------------------------
