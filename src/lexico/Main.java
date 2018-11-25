@@ -44,6 +44,7 @@ import java.util.stream.Stream;
 import java_cup.runtime.*;
 
 import sintactico.*;
+import semantico.*;
 
 public class Main extends Application implements Cloneable  {
 
@@ -60,6 +61,7 @@ public class Main extends Application implements Cloneable  {
 
     @FXML private TextArea ta_errores_sintacticos_id;
     @FXML private TextArea ta_errores_semanticos_id;
+    @FXML private TextArea ta_tabla_simbolos_id;
     @FXML private TextArea ta_codigo_ensamblador_id;
 
     @FXML public CodeArea ca_insertar_texto_id;
@@ -380,6 +382,7 @@ public class Main extends Application implements Cloneable  {
         info_tabla_errores.clear();
         ta_errores_sintacticos_id.clear();
         ta_errores_semanticos_id.clear();
+        ta_tabla_simbolos_id.clear();
     }
 
     /**
@@ -451,10 +454,9 @@ public class Main extends Application implements Cloneable  {
         ta_errores_sintacticos_id.appendText("\n" + pError);
     }
 
-    public void agregarErrorSemantico(String pError)
-    {
-        ta_errores_semanticos_id.appendText("\n" + pError);
-    }
+    public void agregarErrorSemantico(String pError) { ta_errores_semanticos_id.appendText("\n" + pError); }
+
+    public void mostrarTablaSimbolos(String texto) { ta_tabla_simbolos_id.appendText("\n" + texto); }
 
     // ============================ CodeArea ============================ \\
 

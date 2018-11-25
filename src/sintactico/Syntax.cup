@@ -17,18 +17,9 @@ import java.util.Stack;
 // http://staff.polito.it/silvano.rivoira/HowToWriteYourOwnCompiler.htm
 // https://www.cs.auckland.ac.nz/courses/compsci330s1c/lectures/330ChaptersPDF/Chapt6.pdf
 
-// TODO: QUITAR -> case, repeat y arreglos.
+import semantico.*;
 
-action code
-{:
-    TablaFunciones tF =new TablaFunciones();
-    TablaProcedimiento tP =new TablaProcedimiento();
-    TablaTypes tT =new TablaTypes();
-    TablaVariables tV =new TablaVariables();
-    ArrayList<String> listadeId = new ArrayList();
-    String tipo="",tipoaux="";
-    int nparametros;
-:}
+// TODO: QUITAR -> case, repeat y arreglos.
 
 parser code
 {:
@@ -38,6 +29,8 @@ parser code
     }
 
     private Symbol tokenError;
+
+    private TablaSimbolos tablaSimbolos = new TablaSimbolos();
 
     // Metodo al que se llama automaticamente ante algun error sintactico
     public void syntax_error(Symbol s)
@@ -91,6 +84,114 @@ parser code
         String msg = pMsg + ". En la línea: " + (linea) + ", columna: " + (columna) + ".";
 
         Main.miInstancia.agregarErrorSintactico(msg);
+    }
+
+    public void ErrorSemantico(Simbolo simbolo)
+    {
+        String msg = "Error en la línea "+ simbolo.getFila() + ", columna "+ simbolo.getColumna() +". Ya existe ";
+        if(simbolo instanceof Variable){
+            msg += "la variable '" + simbolo.getIdentificador() + "' en el ámbito " + simbolo.getAmbito();
+        }
+        else if(simbolo instanceof Funcion){
+            msg += "la funcion '" + simbolo.getIdentificador() + "' con los mismos parámetros";
+        }
+
+        Main.miInstancia.agregarErrorSemantico(msg);
+    }
+
+    public void ErrorSemantico(String tipo, String identificador, int fila, int columna){
+        String msg = "Error en la línea "+ (fila+1) + ", columna "+ columna + ". ";
+        switch (tipo){
+            case "parametro":
+                msg += "El parámetro '" + identificador + "' ya está definido en la función";
+                break;
+            case "variable":
+                msg += "La variable '" + identificador + "' no ha sido declarada";
+                break;
+            case "funcion":
+                msg += "La función '" + identificador + "' no existe con esos parámetros";
+                break;
+            case "retorno":
+                msg += "El identificador '" + identificador + "' en el retorno no corresponde al nombre de la función";
+                break;
+        }
+
+        Main.miInstancia.agregarErrorSemantico(msg);
+    }
+
+    public void mostrarTablaSimbolos(){
+        Main.miInstancia.mostrarTablaSimbolos(tablaSimbolos.verTablaSimbolos());
+    }
+
+    //el retorno solo es util para las funciones
+    public boolean verificarVariablesUsadas(String ambito, boolean esFuncion){
+        int tamanoVariablesUsadas = tablaSimbolos.variablesUsadas.size();
+        for(int i=0; i<tamanoVariablesUsadas; i++){
+            Variable var = tablaSimbolos.variablesUsadas.get(i);
+
+            if(esFuncion && (i == tamanoVariablesUsadas-1)){
+                if(!var.getIdentificador().equals(ambito)){
+                    ErrorSemantico("retorno", var.getIdentificador(), var.getFila(), var.getColumna());
+                    return false;
+                }
+            }
+            else if(!tablaSimbolos.existeVariable(var.getIdentificador(), ambito)){
+                ErrorSemantico("variable", var.getIdentificador(), var.getFila(), var.getColumna());
+            }
+        }
+        //Se limpia la lista para ser usada luego
+        tablaSimbolos.variablesUsadas = new ArrayList<>();
+        return true;
+    }
+
+
+    public void agregarFuncion(String identificador, int fila, int columna){
+        //null si todos los parámetros están bien
+        ArrayList<Variable> errores = tablaSimbolos.getParametrosErroneos();
+        if(errores != null){
+            for(Variable v : errores)
+                ErrorSemantico("parametro", v.getIdentificador(), v.getFila(), v.getColumna());
+            //para que no quede un tipo ahí botado
+            tablaSimbolos.desecharUltimoTipoDato();
+        }
+        else{
+            Funcion funcion = tablaSimbolos.crearFuncion(identificador, fila, columna);
+
+            //revisa las llamadas a variables
+            boolean retornoCorrecto;
+            if(funcion.getTipoRetorno() != null){  //es funcion
+                retornoCorrecto = verificarVariablesUsadas(identificador, true);
+            }else{                          //es procedimiento
+                retornoCorrecto = verificarVariablesUsadas(identificador, false);
+            }
+
+
+            if(retornoCorrecto){
+                //Revisa las variables locales
+                for(int i=0; i<tablaSimbolos.variables.size(); i++){
+                    Variable var = tablaSimbolos.variables.get(i);
+                    var.setAmbito(identificador);
+                    if(!tablaSimbolos.existeSimbolo(var)){
+                        tablaSimbolos.insertar(var);
+                    }else{
+                        ErrorSemantico(var);
+                    }
+                }
+
+                if(!tablaSimbolos.existeSimbolo(funcion)){
+                    tablaSimbolos.insertar(funcion);
+                }else{
+                    ErrorSemantico(funcion);
+                }
+            }
+        }
+
+        //limpia la lista para ser usada luego
+        tablaSimbolos.variables = new ArrayList<>();
+        //limpia la lista de parámetros para que pueda ser usada luego
+        tablaSimbolos.parametros = new ArrayList<>();
+        //este simpre se traslapa entre producciones >:v
+        tablaSimbolos.limpiarParametrosLlamada();
     }
 :}
 
@@ -167,8 +268,9 @@ non terminal Symbol inicio, programa, encabezado, cuerpo, _cuerpo, variables, _v
 
 non terminal Symbol epsilon;
 
-//no terminales "de paso" para el manejo de errores (evitar conflictos shift/reduce, etc.)
-//non terminal Symbol decl_variables, decl_constantes, _declarar_datos;
+
+//Esta es para ponerle el ámbito a cada variable dentro de la función/procedimiento
+non terminal Symbol declarar_datos_locales;
 
 start with inicio;
 
@@ -180,6 +282,12 @@ programa ::= PROGRAM IDENTIFICADOR encabezado
             BEGIN
             _cuerpo
             END
+            {:
+                verificarVariablesUsadas("Global", false);
+
+                //que este quede de último xD no sé donde más meterlo
+                mostrarTablaSimbolos();
+            :}
             | PROGRAM IDENTIFICADOR encabezado
                 BEGIN
                 _cuerpo
@@ -202,7 +310,24 @@ encabezado ::= declarar_datos declarar_func_proc
                     RESULT = new Symbol(-1);
                 :};
 
-declarar_datos ::= constantes variables;
+//Estos son datos globales xD
+declarar_datos ::= constantes variables
+                {:
+                    for(int i=0; i<tablaSimbolos.variables.size(); i++){
+                        Variable var = tablaSimbolos.variables.get(i);
+                        var.setAmbito("Global");
+                        if(!tablaSimbolos.existeSimbolo(var)){
+                            tablaSimbolos.insertar(var);
+                        }else{
+                            ErrorSemantico(var);
+                        }
+                    }
+                    //limpia la lista de variables para ser usada luego
+                    tablaSimbolos.variables = new ArrayList<>();
+                :};
+
+//Esta es para ponerle el ámbito a cada variable dentro de la función/procedimiento
+declarar_datos_locales ::= constantes variables;
 
 constantes ::= CONST _constantes | epsilon
             | CONST error
@@ -221,8 +346,15 @@ variables ::= VAR _variables | epsilon
                     RESULT = new Symbol(-1);
                 :}
                 OPERADOR_PUNTO_Y_COMA ___variables;
-_variables ::= IDENTIFICADOR __variables OPERADOR_DOS_PUNTOS tipos OPERADOR_PUNTO_Y_COMA ___variables;
-__variables ::= OPERADOR_COMA IDENTIFICADOR __variables | epsilon;
+_variables ::= IDENTIFICADOR:id __variables OPERADOR_DOS_PUNTOS tipos:tipo OPERADOR_PUNTO_Y_COMA ___variables
+                {:
+                    tablaSimbolos.agregarVariable(id.toString(), idleft, idright);
+                :};
+__variables ::= OPERADOR_COMA IDENTIFICADOR:id __variables
+                {:
+                    tablaSimbolos.agregarVariableSinTipo(id.toString(), idleft, idright);
+                :}
+                | epsilon;
 ___variables ::= _variables | epsilon;
 
 declarar_func_proc ::= declarar_funciones declarar_func_proc
@@ -243,24 +375,47 @@ declarar_func_proc ::= declarar_funciones declarar_func_proc
 
 // ¡¡¡¡¡¡¡¡¡¡¡¡¡¡FALTA EL ERROR DE SI VIENE CON EL CUERPO Y NO TIENE EL RETORNO DE FUNCION!!!!!!!!!!!!!!!!!!!!!!!
 
-declarar_funciones ::= FUNCTION IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR OPERADOR_DOS_PUNTOS tipos
-                    declarar_datos
+declarar_funciones ::= FUNCTION IDENTIFICADOR:id OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR OPERADOR_DOS_PUNTOS tipos
+                    declarar_datos_locales
                     BEGIN cuerpo asignar_valores_1 END
+                    {:
+                        //Esta es local, está definida dentro de Syntax.cup
+                        // Es para poder ser reusada y mostrar los errores
+                        agregarFuncion(id.toString(), idleft, idright);
+                    :}
                     |
                     //este llama a retorno de funcion para que maneje el error
-                    FUNCTION IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR OPERADOR_DOS_PUNTOS tipos
-                    declarar_datos
-                    BEGIN /* sin cuerpo */ retorno_funcion END;
+                    FUNCTION IDENTIFICADOR:id OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR OPERADOR_DOS_PUNTOS tipos
+                    declarar_datos_locales
+                    BEGIN /* sin cuerpo */ retorno_funcion END
+                    {:
+                        //Esta es local, está definida dentro de Syntax.cup
+                        // Es para poder ser reusada y mostrar los errores
+                        agregarFuncion(id.toString(), idleft, idright);
+                    :};
 
-declarar_procedimientos ::= PROCEDURE IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR
-                    declarar_datos
+declarar_procedimientos ::= PROCEDURE IDENTIFICADOR:id OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR
+                    declarar_datos_locales
                     BEGIN cuerpo END
+                    {:
+                        //Esta es local, está definida dentro de Syntax.cup
+                        // Es para poder ser reusada y mostrar los errores
+                        agregarFuncion(id.toString(), idleft, idright);
+                    :}
                     |
-                    PROCEDURE IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR
-                    declarar_datos
-                    BEGIN /* sin cuerpo */ END;
+                    PROCEDURE IDENTIFICADOR:id OPERADOR_PARENTESIS_ABRIR parametros_entrada OPERADOR_PARENTESIS_CERRAR
+                    declarar_datos_locales
+                    BEGIN /* sin cuerpo */ END
+                    {:
+                        //Esta es local, está definida dentro de Syntax.cup
+                        // Es para poder ser reusada y mostrar los errores
+                        agregarFuncion(id.toString(), idleft, idright);
+                    :};
 
-retorno_funcion ::= IDENTIFICADOR OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA
+retorno_funcion ::= IDENTIFICADOR:id OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA
+                    {:
+                        tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
+                    :}
                     | /* epsilon */
                     {:  //es aceptado pero se reporta como error
                         Symbol tokenAct = (Symbol)CUP$Syntax$stack.peek();
@@ -269,7 +424,10 @@ retorno_funcion ::= IDENTIFICADOR OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADO
                     :};
 
 parametros_entrada ::= _parametros_entrada | epsilon;
-_parametros_entrada ::= tipos IDENTIFICADOR __parametros_entrada;
+_parametros_entrada ::= tipos IDENTIFICADOR:id __parametros_entrada
+                    {:
+                        tablaSimbolos.agregarParametro(id.toString(), idleft, idright);
+                    :};
 __parametros_entrada ::= OPERADOR_COMA _parametros_entrada | epsilon;
 
 // ------------------------------ Cuerpo -------------------------------------------------------------------------------
@@ -286,10 +444,14 @@ cuerpo ::= cuerpo instrucciones
 
 _cuerpo ::= cuerpo | epsilon;
 
-instrucciones ::= asignar_valores_1
+instrucciones ::= asignar_valores_1         //Los parametros de llamada siempre se traslapan entre estas cosas >:v
+                    {: tablaSimbolos.limpiarParametrosLlamada(); :}
                 | asignar_valores_2 OPERADOR_PUNTO_Y_COMA
+                    {: tablaSimbolos.limpiarParametrosLlamada(); :}
                 | expr_read_write
+                    {: tablaSimbolos.limpiarParametrosLlamada(); :}
                 | llamar_func_o_proc OPERADOR_PUNTO_Y_COMA
+                    {: tablaSimbolos.limpiarParametrosLlamada(); :}
                 | error
                      {:
                          report_error("Expresión", tokenError);
@@ -297,15 +459,40 @@ instrucciones ::= asignar_valores_1
                      :}
                      OPERADOR_PUNTO_Y_COMA;
 
-asignar_valores_1 ::= IDENTIFICADOR OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA; // a := 12, a := b() + 3 - (4/d)..., f(...)
+asignar_valores_1 ::= IDENTIFICADOR:id OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA // a := 12, a := b() + 3 - (4/d)..., f(...)
+                    {:
+                        tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
+                    :};
+asignar_valores_2 ::= IDENTIFICADOR:id ___operadores_aritmeticos expr_aritmeticas // a += 12
+                    {:
+                        tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
+                    :}
+                    | IDENTIFICADOR:id __operadores_aritmeticos // a++, a--
+                    {:
+                        tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
+                    :}
+                    | __operadores_aritmeticos IDENTIFICADOR:id // ++a, --a
+                    {:
+                        tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
+                    :}
+                    | IDENTIFICADOR:id1 OPERADOR_ASIGNACION_1 IDENTIFICADOR:id2 __operadores_aritmeticos // a := b++
+                    {:
+                        tablaSimbolos.agregarVariableUsada(id1.toString(), id1left, id1right);
+                        tablaSimbolos.agregarVariableUsada(id2.toString(), id2left, id2right);
+                    :}
+                    | IDENTIFICADOR:id1 OPERADOR_ASIGNACION_1 __operadores_aritmeticos IDENTIFICADOR:id2 // a := ++b
+                    {:
+                        tablaSimbolos.agregarVariableUsada(id1.toString(), id1left, id1right);
+                        tablaSimbolos.agregarVariableUsada(id2.toString(), id2left, id2right);
+                    :};
 
-asignar_valores_2 ::= IDENTIFICADOR ___operadores_aritmeticos expr_aritmeticas // a += 12
-                    | IDENTIFICADOR __operadores_aritmeticos // a++, a--
-                    | __operadores_aritmeticos IDENTIFICADOR // ++a, --a
-                    | IDENTIFICADOR OPERADOR_ASIGNACION_1 IDENTIFICADOR __operadores_aritmeticos // a := b++
-                    | IDENTIFICADOR OPERADOR_ASIGNACION_1 __operadores_aritmeticos IDENTIFICADOR; // a := ++b
-
-llamar_func_o_proc ::= IDENTIFICADOR OPERADOR_PARENTESIS_ABRIR parametros_llamada_func OPERADOR_PARENTESIS_CERRAR;
+llamar_func_o_proc ::= IDENTIFICADOR:id OPERADOR_PARENTESIS_ABRIR parametros_llamada_func OPERADOR_PARENTESIS_CERRAR
+                    {:
+                        boolean valida = tablaSimbolos.validarLlamadaFuncion(id.toString());
+                        if(!valida){
+                            ErrorSemantico("funcion", id.toString(), idleft, idright);
+                        }
+                    :};
 
 parametros_llamada_func ::= expr_aritmeticas OPERADOR_COMA _parametros_llamada_func
                         | expr_aritmeticas
@@ -404,11 +591,32 @@ operadores_booleanos ::= OPERADOR_MAYOR_QUE | OPERADOR_MAYOR_IGUAL_QUE | OPERADO
 operadores_booleanos_1 ::= operadores_booleanos | OPERADOR_ASIGNACION_2;
 
 tokens ::= _tokens | tokens_boolean;
-_tokens ::= IDENTIFICADOR | LITERAL_NUM_ENTERO | LITERAL_NUM_FLOTANTE | LITERAL_STRING;
+_tokens ::= IDENTIFICADOR:id
+            {:
+                tablaSimbolos.agregarParametroLlamada(id.toString());
+                tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
+            :}
+        | LITERAL_NUM_ENTERO {: tablaSimbolos.agregarParametroLlamada(TipoDato.INT); :}
+        | LITERAL_NUM_FLOTANTE {: tablaSimbolos.agregarParametroLlamada(TipoDato.REAL); :}
+        | LITERAL_STRING {: tablaSimbolos.agregarParametroLlamada(TipoDato.STRING); :};
 
-tokens_boolean ::= TRUE | FALSE | NOT IDENTIFICADOR | NOT TRUE | NOT FALSE;
+tokens_boolean ::= TRUE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :}
+        | FALSE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :}
+        | NOT IDENTIFICADOR:id
+            {:
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+                tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
+            :}
+        | NOT TRUE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :}
+        | NOT FALSE {: tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); :} ;
 
-tipos ::= INT | SHORTINT | LONGINT | REAL | STRING | CHAR | BOOLEAN;
+tipos ::= INT {: tablaSimbolos.agregarTipoDato(TipoDato.INT); :}
+        | SHORTINT {: tablaSimbolos.agregarTipoDato(TipoDato.SHORTINT); :}
+        | LONGINT {: tablaSimbolos.agregarTipoDato(TipoDato.LONGINT); :}
+        | REAL {: tablaSimbolos.agregarTipoDato(TipoDato.REAL); :}
+        | STRING {: tablaSimbolos.agregarTipoDato(TipoDato.STRING); :}
+        | CHAR {: tablaSimbolos.agregarTipoDato(TipoDato.CHAR); :}
+        | BOOLEAN {: tablaSimbolos.agregarTipoDato(TipoDato.BOOLEAN); :} ;
 
 epsilon ::= {: RESULT = new Symbol(-1); :};
 
