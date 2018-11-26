@@ -24,6 +24,7 @@ import org.fxmisc.wellbehaved.event.EventPattern;
 import org.fxmisc.wellbehaved.event.InputMap;
 import org.fxmisc.wellbehaved.event.Nodes;
 import org.reactfx.Subscription;
+import semantico.Traductor.Generador;
 import vista.ItemTablaErrores;
 import vista.ItemTablaTokens;
 import vista.LineaToken;
@@ -384,10 +385,16 @@ public class Main extends Application implements Cloneable  {
         ta_errores_semanticos_id.clear();
         ta_tabla_simbolos_id.clear();
         ta_codigo_ensamblador_id.clear();
+        Generador.contadorEtiq = 1;
+        EliminarArchivoASM();
+    }
 
+    public void EliminarArchivoASM()
+    {
         File file = new File("src/semantico/Traductor/Traduccion.asm");
         if(file.delete()) { /* Eliminado */}
         else { /* No se pudo eliminar (no existe) */ }
+        ta_codigo_ensamblador_id.clear();
     }
 
     /**

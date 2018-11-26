@@ -81,7 +81,10 @@
               <content>
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                      <children>
-                        <TextArea fx:id="ta_codigo_ensamblador_id" editable="false" prefHeight="536.0" prefWidth="546.0" />
+                        <TextArea fx:id="ta_codigo_ensamblador_id" editable="false" prefHeight="536.0" prefWidth="546.0">
+                           <font>
+                              <Font name="Consolas" size="12.0" />
+                           </font></TextArea>
                      </children></AnchorPane>
               </content>
             </Tab>

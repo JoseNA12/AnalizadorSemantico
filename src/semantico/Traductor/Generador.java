@@ -15,11 +15,13 @@ public class Generador {
 	public static final int LABEL = 14831;
 
 	public static int contadorTemp = 0;
-	public static int contadorEtiq = 0;
+	public static int contadorEtiq = 1;
+	public static String etiqAnterior = "L0";
+    public static String etiqSiguiente = "";
 	protected static PrintStream out = System.out;
 
 
-    public static String ExpresionesAritmeticas(PilaSemantica pPila) // unicamente binarias (y := f + 2)
+    public static String ExpresionesAritmeticas(PilaSemantica pPila) // unicamente binarias [y := f + 2]
     {
         String traduccion = ""; // add, sub, mul, div
         String var1, op, var2, var3;
@@ -67,6 +69,46 @@ public class Generador {
                 traduccion += "div " + var2 + "\n";
                 traduccion += "mov " + var3 + ", ah" + "\n";
                 break;
+        }
+
+        return traduccion;
+    }
+
+    public static String ExpresionesAritmeticas_(PilaSemantica pPila, boolean formaInc) // true-> a++ | false -> ++a
+    {
+        String traduccion = "";
+
+        String op = pPila.pop_end().getValor();
+        String var = pPila.pop_end().getValor();
+        String tempOp = "";
+
+        if (formaInc)
+        {
+            switch (op)
+            {
+                case "++":
+                    tempOp = "inc ";
+                    break;
+
+                case "--":
+                    tempOp = "dec ";
+                    break;
+            }
+            traduccion += tempOp + var;
+        }
+        else
+        {
+            switch (var)
+            {
+                case "++":
+                    tempOp = "inc ";
+                    break;
+
+                case "--":
+                    tempOp = "dec ";
+                    break;
+            }
+            traduccion += tempOp + op;
         }
 
         return traduccion;
@@ -132,6 +174,22 @@ public class Generador {
                     break;
             }
         }
+
+        return traduccion;
+    }
+
+    public static String EstrucControl_IF(PilaSemantica pPila) // unicamente de la forma [if (a < b)]
+    {
+        String traduccion = etiqAnterior + "\n";
+        String tab = "   ";
+
+        traduccion += tab + "if (" + pPila.pop_init().getValor() + " " + pPila.pop_init().getValor() + " " +
+                                pPila.pop_init().getValor() + ") jmp ";
+
+        etiqAnterior = nuevaEtiq();
+        etiqSiguiente = nuevaEtiq(); // Parece redundancia de asignación pero es necesario que 'etiqAnterior' y 'etiqSiguiente' contengan el valor
+        traduccion += etiqAnterior + "\n";
+        traduccion += tab + "else jmp " + etiqSiguiente;
 
         return traduccion;
     }

@@ -354,7 +354,7 @@ public class TablaSimbolos {
      */
     public boolean validarLlamadaFuncion(String identificador){
         Funcion funcionLlamada;
-        System.out.println(identificador + " " + parametros.size());
+        //System.out.println(identificador + " " + parametros.size());
 
         for(int i=0; i<tablaSimbolos.size(); i++){
             if(tablaSimbolos.get(i) instanceof Funcion &&

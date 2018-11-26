@@ -26,15 +26,27 @@ public class PilaSemantica {
 
     public RegistroSemantico pop_init() // saca el primero de la lista
     {
-        RegistroSemantico temp = pilaSemantica.get(0);
-        pilaSemantica.remove(0);
+        RegistroSemantico temp = null;
+        try
+        {
+            temp = pilaSemantica.get(0);
+            pilaSemantica.remove(0);
+        }
+        catch(IndexOutOfBoundsException e) { System.err.println("Error en la pila: pop_init()"); }
+
         return temp;
     }
 
     public RegistroSemantico pop_end() // el pop típico que saca el último o el tope
     {
-        RegistroSemantico temp = pilaSemantica.get(pilaSemantica.size() - 1);
-        pilaSemantica.remove(pilaSemantica.size() - 1);
+        RegistroSemantico temp = null;
+        try
+        {
+            temp = pilaSemantica.get(pilaSemantica.size() - 1);
+            pilaSemantica.remove(pilaSemantica.size() - 1);
+        }
+        catch (IndexOutOfBoundsException e) { System.err.println("Error en la pila: pop_end()"); }
+
         return temp;
     }
 
