@@ -17,15 +17,14 @@ public class Generador {
 	protected static PrintStream out = System.out;
 
 
-
     public static String ExpresionesAritmeticas(PilaSemantica pPila) // unicamente binarias (y := f + 2)
     {
         String traduccion = ""; // add, sub, mul, div
         String var1, op, var2, var3;
 
-        var1 = "mov ax, " + pPila.pop_end().getValor();
+        var1 = "mov al, " + pPila.pop_end().getValor();
         op = pPila.pop_end().getValor();
-        var2 = "ax, " + pPila.pop_end().getValor();
+        var2 = pPila.pop_end().getValor();
         pPila.pop_end();
         var3 = pPila.pop_end().getValor();
 
@@ -33,32 +32,38 @@ public class Generador {
         {
             case "+":
                 traduccion += var1 + "\n";
-                traduccion += "add " + var2 + "\n";
-                traduccion += "mov " + var3 + ", ax" + "\n";
+                traduccion += "add al, " + var2 + "\n";
+                traduccion += "mov " + var3 + ", al" + "\n";
                 break;
 
             case "-":
                 traduccion += var1 + "\n";
-                traduccion += "sub " + var2 + "\n";
-                traduccion += "mov " + var3 + ", ax" + "\n";
+                traduccion += "sub al," + var2 + "\n";
+                traduccion += "mov " + var3 + ", al" + "\n";
                 break;
 
             case "*":
                 traduccion += var1 + "\n";
                 traduccion += "mul " + var2 + "\n";
-                traduccion += "mov " + var3 + ", ax" + "\n";
+                traduccion += "mov " + var3 + ", al" + "\n";
                 break;
 
             case "/":
                 traduccion += var1 + "\n";
                 traduccion += "div " + var2 + "\n";
-                traduccion += "mov " + var3 + ", ax" + "\n";
+                traduccion += "mov " + var3 + ", al" + "\n";
                 break;
 
             case "DIV":
                 traduccion += var1 + "\n";
                 traduccion += "div " + var2 + "\n";
-                traduccion += "mov " + var3 + ", ax" + "\n";
+                traduccion += "mov " + var3 + ", al" + "\n";
+                break;
+
+            case "MOD":
+                traduccion += var1 + "\n";
+                traduccion += "div " + var2 + "\n";
+                traduccion += "mov " + var3 + ", ah" + "\n";
                 break;
         }
 
