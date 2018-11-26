@@ -139,6 +139,64 @@ public class TablaSimbolos {
         return false;
     }
 
+    //############################### QUICKSORT sobre las variables porque me lleva puta >:v
+
+    /* Esta funcion toma el ultimo elemento como pivot, lo coloca es la posición correcta del arreglo
+       y coloca los más pequeños que el pivot a la izquierda del pivot, los más grandes a la derecha */
+    private int partition(ArrayList<Variable> vars, int low, int high)
+    {
+        Variable pivot = vars.get(high);
+        int i = (low-1); // index of smaller element
+        for (int j=low; j<high; j++){
+            // Si la fila es menor
+            if (vars.get(j).getFila() < pivot.getFila()) {
+                i++;
+                // swap arr[i] and arr[j]
+                Variable temp = vars.get(i);
+                vars.set(i, vars.get(j));
+                vars.set(j, temp);
+            }
+            //Si la fila es igual pero la columna es menor
+            else if(vars.get(j).getFila() == pivot.getFila() &&
+                    vars.get(j).getColumna() <= pivot.getColumna()){
+                i++;
+                // swap arr[i] and arr[j]
+                Variable temp = vars.get(i);
+                vars.set(i, vars.get(j));
+                vars.set(j, temp);
+            }
+        }
+        // cambio(swap) arr[i+1] y arr[high] (o el pivot)
+        Variable temp = vars.get(i+1);
+        vars.set(i+1, vars.get(high));
+        vars.set(high, temp);
+
+        return i+1;
+    }
+    /**
+     * Aplica un quicksort sobre las variables, porque el orden cambia mucho dependiendo de la cantidad
+     * @param vars el atributo variables de esta clase
+     * @param low indice de inicio
+     * @param high indice final
+     */
+    private void quicksort(ArrayList<Variable> vars, int low, int high)
+    {
+        if (low < high)
+        {
+            //pi = partitioning index
+            int pi = partition(vars, low, high);
+
+            // Recursivamnte ordena los elementos antes y después de la particion
+            quicksort(vars, low, pi-1);
+            quicksort(vars, pi+1, high);
+        }
+    }
+
+    //Llama al quicksort porque las variables no tienen orden >:v
+    public void ordenarVariables(){
+        quicksort(variables, 0, variables.size()-1);
+    }
+
 
     //################################ VARIABLES
 
@@ -150,16 +208,22 @@ public class TablaSimbolos {
     public void agregarVariable(String identificador, int fila, int columna){
         Variable var = new Variable(identificador, tiposDato.pollLast(), "", fila+1, columna);
 
-        //Saca las últimas variables sin tipo, para ir ordenando de forma inversa
+        //Agrega la primera variable de la producción
+        variables.add(var);
+
+        //Saca las últimas variables sin tipo
         if(pilaVariablesSinTipo.size() != 0){
             Deque<Variable> auxVarSinTipo = pilaVariablesSinTipo.pollLast();
             while(auxVarSinTipo.size() != 0){
-                variables.add(0, auxVarSinTipo.pollFirst());
+                variables.add(auxVarSinTipo.pollFirst());
             }
         }
 
-        //Agrega la primera variable de la producción
-        variables.add(0, var);
+
+        /*System.out.println();
+        for(Variable v: variables) {
+            System.out.println(v.identificador + " " + ((Variable) v).getTipo() + " " + v.fila + "," + v.columna);
+        }*/
     }
 
     /**
@@ -290,6 +354,7 @@ public class TablaSimbolos {
      */
     public boolean validarLlamadaFuncion(String identificador){
         Funcion funcionLlamada;
+        System.out.println(identificador + " " + parametros.size());
 
         for(int i=0; i<tablaSimbolos.size(); i++){
             if(tablaSimbolos.get(i) instanceof Funcion &&
@@ -381,7 +446,10 @@ public class TablaSimbolos {
                 msj += "Variable: " + s.identificador + ", tipo: " + ((Variable) s).getTipo() + "\n";
             }
             else if(s instanceof Funcion){
-                msj += "Función: " + s.identificador + ", tipo de retorno: " + ((Funcion) s).getTipoRetorno()  + "\n";
+                if(((Funcion) s).getTipoRetorno() == null)  //Es procedimiento
+                    msj += "Procedimiento: " + s.identificador + "\n";
+                else                                        //Es funcion
+                    msj += "Función: " + s.identificador + ", tipo de retorno: " + ((Funcion) s).getTipoRetorno()  + "\n";
 
                 ArrayList<Variable> params = ((Funcion) s).getParametros();
                 msj += "\tCantidad de parámetros: " + params.size() + "\n";

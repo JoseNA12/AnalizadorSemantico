@@ -13,6 +13,7 @@ import lexico.Main;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
+import semantico.Traductor.*;
 import semantico.*;
 import java_cup.runtime.XMLElement;
 
@@ -636,7 +637,7 @@ public class Syntax extends java_cup.runtime.lr_parser {
             msg += "la variable '" + simbolo.getIdentificador() + "' en el ámbito " + simbolo.getAmbito();
         }
         else if(simbolo instanceof Funcion){
-            msg += "la funcion '" + simbolo.getIdentificador() + "' con los mismos parámetros";
+            msg += "la funcion o procedimiento '" + simbolo.getIdentificador() + "' con los mismos parámetros";
         }
 
         Main.miInstancia.agregarErrorSemantico(msg);
@@ -652,7 +653,7 @@ public class Syntax extends java_cup.runtime.lr_parser {
                 msg += "La variable '" + identificador + "' no ha sido declarada";
                 break;
             case "funcion":
-                msg += "La función '" + identificador + "' no existe con esos parámetros";
+                msg += "La función o procedimiento '" + identificador + "' no existe con esos parámetros";
                 break;
             case "retorno":
                 msg += "El identificador '" + identificador + "' en el retorno no corresponde al nombre de la función";
@@ -667,24 +668,61 @@ public class Syntax extends java_cup.runtime.lr_parser {
     }
 
     //el retorno solo es util para las funciones
-    public boolean verificarVariablesUsadas(String ambito, boolean esFuncion){
+    public void verificarVariablesUsadas(Object ambito, boolean esFuncion){
         int tamanoVariablesUsadas = tablaSimbolos.variablesUsadas.size();
-        for(int i=0; i<tamanoVariablesUsadas; i++){
-            Variable var = tablaSimbolos.variablesUsadas.get(i);
 
-            if(esFuncion && (i == tamanoVariablesUsadas-1)){
-                if(!var.getIdentificador().equals(ambito)){
-                    ErrorSemantico("retorno", var.getIdentificador(), var.getFila(), var.getColumna());
-                    return false;
+        if(ambito instanceof String){ //se refiere a una variable
+            for(int i=0; i<tamanoVariablesUsadas; i++){
+                Variable var = tablaSimbolos.variablesUsadas.get(i);
+
+                if(!tablaSimbolos.existeVariable(var.getIdentificador(), ambito.toString())){
+                    ErrorSemantico("variable", var.getIdentificador(), var.getFila(), var.getColumna());
                 }
             }
-            else if(!tablaSimbolos.existeVariable(var.getIdentificador(), ambito)){
-                ErrorSemantico("variable", var.getIdentificador(), var.getFila(), var.getColumna());
+        }
+        else if(ambito instanceof Funcion){
+            Funcion fun = (Funcion) ambito;
+            for(int i=0; i<tamanoVariablesUsadas; i++){
+                Variable var = tablaSimbolos.variablesUsadas.get(i);
+
+                if(esFuncion && (i == tamanoVariablesUsadas-1)){
+                    break; //este caso ya se evaluó en el retorno de función
+                }else{
+                    boolean existeParametro = false;
+                    for(Variable v : fun.getParametros()){
+                        if(var.getIdentificador().equals(v.getIdentificador())){
+                            existeParametro = true;
+                            break;
+                        }
+                    }
+                    if(!existeParametro &&
+                        !tablaSimbolos.existeVariable(var.getIdentificador(), fun.getIdentificador())){
+                        ErrorSemantico("variable", var.getIdentificador(), var.getFila(), var.getColumna());
+                    }
+                }
             }
         }
-        //Se limpia la lista para ser usada luego
-        tablaSimbolos.variablesUsadas = new ArrayList<>();
+    }
+
+    public boolean verificarRetornoFuncion(Funcion funcion){
+        if(funcion.getTipoRetorno() == null)  return true;    //es procedimiento
+
+        Variable var = tablaSimbolos.variablesUsadas.get( tablaSimbolos.variablesUsadas.size()-1 );
+
+        if(!var.getIdentificador().equals(funcion.getIdentificador())){
+            ErrorSemantico("retorno", var.getIdentificador(), var.getFila(), var.getColumna());
+            return false;
+        }
         return true;
+    }
+
+    public boolean existeParametro(Funcion funcion, String identificador){
+        for(Variable v : funcion.getParametros()){
+            if(v.getIdentificador().equals(identificador)){
+                return true;
+            }
+        }
+        return false;
     }
 
 
@@ -699,26 +737,25 @@ public class Syntax extends java_cup.runtime.lr_parser {
         }
         else{
             Funcion funcion = tablaSimbolos.crearFuncion(identificador, fila, columna);
-
-            //revisa las llamadas a variables
-            boolean retornoCorrecto;
-            if(funcion.getTipoRetorno() != null){  //es funcion
-                retornoCorrecto = verificarVariablesUsadas(identificador, true);
-            }else{                          //es procedimiento
-                retornoCorrecto = verificarVariablesUsadas(identificador, false);
-            }
-
-
-            if(retornoCorrecto){
+            if(verificarRetornoFuncion(funcion)){
+                tablaSimbolos.ordenarVariables();
                 //Revisa las variables locales
                 for(int i=0; i<tablaSimbolos.variables.size(); i++){
                     Variable var = tablaSimbolos.variables.get(i);
                     var.setAmbito(identificador);
-                    if(!tablaSimbolos.existeSimbolo(var)){
+                    if(!existeParametro(funcion, var.getIdentificador()) &&
+                        !tablaSimbolos.existeSimbolo(var)){
                         tablaSimbolos.insertar(var);
                     }else{
                         ErrorSemantico(var);
                     }
+                }
+
+                //revisa las llamadas a variables
+                if(funcion.getTipoRetorno() != null){  //es funcion
+                    verificarVariablesUsadas(funcion, true);
+                }else{                          //es procedimiento
+                    verificarVariablesUsadas(funcion, false);
                 }
 
                 if(!tablaSimbolos.existeSimbolo(funcion)){
@@ -731,6 +768,8 @@ public class Syntax extends java_cup.runtime.lr_parser {
 
         //limpia la lista para ser usada luego
         tablaSimbolos.variables = new ArrayList<>();
+        //Se limpia la lista para ser usada luego
+        tablaSimbolos.variablesUsadas = new ArrayList<>();
         //limpia la lista de parámetros para que pueda ser usada luego
         tablaSimbolos.parametros = new ArrayList<>();
         //este simpre se traslapa entre producciones >:v
@@ -741,6 +780,13 @@ public class Syntax extends java_cup.runtime.lr_parser {
 /** Cup generated class to encapsulate user supplied action code.*/
 @SuppressWarnings({"rawtypes", "unchecked", "unused"})
 class CUP$Syntax$actions {
+
+
+    public PilaSemantica pilaSemantica = new PilaSemantica();
+    public DTO miDTO = new DTO();
+    public List<String> miLista = new ArrayList<>();
+    public String miToken = "";
+
   private final Syntax parser;
 
   /** Constructor */
@@ -850,6 +896,7 @@ class CUP$Syntax$actions {
             {
               Symbol RESULT =null;
 		
+                    tablaSimbolos.ordenarVariables();
                     for(int i=0; i<tablaSimbolos.variables.size(); i++){
                         Variable var = tablaSimbolos.variables.get(i);
                         var.setAmbito("Global");
@@ -1807,6 +1854,9 @@ class CUP$Syntax$actions {
           case 95: // expr_aritmeticas ::= tokens _expr_aritmeticas 
             {
               Symbol RESULT =null;
+		int _tkleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-1)).left;
+		int _tkright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-1)).right;
+		Symbol _tk = (Symbol)((java_cup.runtime.Symbol) CUP$Syntax$stack.elementAt(CUP$Syntax$top-1)).value;
 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("expr_aritmeticas",24, ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-1)), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
@@ -1825,6 +1875,9 @@ class CUP$Syntax$actions {
           case 97: // expr_aritmeticas ::= OPERADOR_PARENTESIS_ABRIR expr_aritmeticas OPERADOR_PARENTESIS_CERRAR _expr_aritmeticas 
             {
               Symbol RESULT =null;
+		int ealeft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-2)).left;
+		int earight = ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-2)).right;
+		Symbol ea = (Symbol)((java_cup.runtime.Symbol) CUP$Syntax$stack.elementAt(CUP$Syntax$top-2)).value;
 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("expr_aritmeticas",24, ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-3)), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
@@ -1834,6 +1887,9 @@ class CUP$Syntax$actions {
           case 98: // _expr_aritmeticas ::= _operadores_aritmeticos expr_aritmeticas 
             {
               Symbol RESULT =null;
+		int ealeft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int earight = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Symbol ea = (Symbol)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_expr_aritmeticas",25, ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-1)), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
@@ -1933,7 +1989,10 @@ class CUP$Syntax$actions {
           case 109: // _operadores_aritmeticos ::= OPERADOR_ADICION 
             {
               Symbol RESULT =null;
-
+		int oaleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int oaright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object oa = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 /*pilaSemantica.push(oa.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_ADICION); miDTO.setOperador(sym.OPERADOR_ADICION); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_operadores_aritmeticos",27, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -1942,7 +2001,10 @@ class CUP$Syntax$actions {
           case 110: // _operadores_aritmeticos ::= OPERADOR_SUSTRACCION 
             {
               Symbol RESULT =null;
-
+		int osleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int osright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object os = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 /*pilaSemantica.push(os.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_SUSTRACCION); miDTO.setOperador(sym.OPERADOR_SUSTRACCION); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_operadores_aritmeticos",27, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -1951,7 +2013,10 @@ class CUP$Syntax$actions {
           case 111: // _operadores_aritmeticos ::= OPERADOR_MULTIPLICACION 
             {
               Symbol RESULT =null;
-
+		int omleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int omright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object om = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 /*pilaSemantica.push(om.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_MULTIPLICACION); miDTO.setOperador(sym.OPERADOR_MULTIPLICACION); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_operadores_aritmeticos",27, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -1960,7 +2025,10 @@ class CUP$Syntax$actions {
           case 112: // _operadores_aritmeticos ::= OPERADOR_DIVISION 
             {
               Symbol RESULT =null;
-
+		int odleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int odright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object od = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 /*pilaSemantica.push(od.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_DIVISION); miDTO.setOperador(sym.OPERADOR_DIVISION); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_operadores_aritmeticos",27, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -1969,7 +2037,10 @@ class CUP$Syntax$actions {
           case 113: // _operadores_aritmeticos ::= MOD 
             {
               Symbol RESULT =null;
-
+		int modleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int modright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object mod = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 /*pilaSemantica.push(mod.toString());*/ RESULT = new Symbol(-1, (Object) sym.MOD); miDTO.setOperador(sym.MOD); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_operadores_aritmeticos",27, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -1978,7 +2049,10 @@ class CUP$Syntax$actions {
           case 114: // _operadores_aritmeticos ::= DIV 
             {
               Symbol RESULT =null;
-
+		int divleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int divright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object div = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 /*pilaSemantica.push(div.toString());*/ RESULT = new Symbol(-1, (Object) sym.DIV); miDTO.setOperador(sym.DIV); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_operadores_aritmeticos",27, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -1987,7 +2061,10 @@ class CUP$Syntax$actions {
           case 115: // __operadores_aritmeticos ::= OPERADOR_INCREMENTO 
             {
               Symbol RESULT =null;
-
+		int oileft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int oiright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object oi = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, oi.toString()); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("__operadores_aritmeticos",28, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -1996,7 +2073,10 @@ class CUP$Syntax$actions {
           case 116: // __operadores_aritmeticos ::= OPERADOR_DISMINUCION 
             {
               Symbol RESULT =null;
-
+		int odleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int odright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object od = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, od.toString()); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("__operadores_aritmeticos",28, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2041,7 +2121,10 @@ class CUP$Syntax$actions {
           case 121: // operadores_booleanos ::= OPERADOR_MAYOR_QUE 
             {
               Symbol RESULT =null;
-
+		int omaqleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int omaqright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object omaq = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, omaq.toString()); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("operadores_booleanos",48, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2050,7 +2133,10 @@ class CUP$Syntax$actions {
           case 122: // operadores_booleanos ::= OPERADOR_MAYOR_IGUAL_QUE 
             {
               Symbol RESULT =null;
-
+		int omaiqleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int omaiqright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object omaiq = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, omaiq.toString()); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("operadores_booleanos",48, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2059,7 +2145,10 @@ class CUP$Syntax$actions {
           case 123: // operadores_booleanos ::= OPERADOR_MENOR_QUE 
             {
               Symbol RESULT =null;
-
+		int omeqleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int omeqright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object omeq = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, omeq.toString()); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("operadores_booleanos",48, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2068,7 +2157,10 @@ class CUP$Syntax$actions {
           case 124: // operadores_booleanos ::= OPERADOR_MENOR_IGUAL_QUE 
             {
               Symbol RESULT =null;
-
+		int omeiqleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int omeiqright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object omeiq = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, omeiq.toString()); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("operadores_booleanos",48, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2077,7 +2169,10 @@ class CUP$Syntax$actions {
           case 125: // operadores_booleanos ::= OPERADOR_DIFERENTE_DE 
             {
               Symbol RESULT =null;
-
+		int oddleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int oddright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object odd = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, odd.toString()); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("operadores_booleanos",48, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2104,7 +2199,10 @@ class CUP$Syntax$actions {
           case 128: // tokens ::= _tokens 
             {
               Symbol RESULT =null;
-
+		int tkleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int tkright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Symbol tk = (Symbol)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		 RESULT = new Symbol(-1, tk.value); 
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tokens",43, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2126,6 +2224,8 @@ class CUP$Syntax$actions {
 		int idright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
 		Object id = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
 		
+                /*pilaSemantica.push(id.toString());*/ RESULT = new Symbol(-1, id.toString());
+
                 tablaSimbolos.agregarParametroLlamada(id.toString());
                 tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
             
@@ -2137,7 +2237,14 @@ class CUP$Syntax$actions {
           case 131: // _tokens ::= LITERAL_NUM_ENTERO 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarParametroLlamada(TipoDato.INT); 
+		int lneleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int lneright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object lne = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+                /*pilaSemantica.push(lne.toString());*/ RESULT = new Symbol(-1, lne.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.INT);
+          
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_tokens",44, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2146,7 +2253,14 @@ class CUP$Syntax$actions {
           case 132: // _tokens ::= LITERAL_NUM_FLOTANTE 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarParametroLlamada(TipoDato.REAL); 
+		int lnfleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int lnfright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object lnf = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+                /*pilaSemantica.push(lnf.toString());*/ RESULT = new Symbol(-1, lnf.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.REAL);
+          
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_tokens",44, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2155,7 +2269,14 @@ class CUP$Syntax$actions {
           case 133: // _tokens ::= LITERAL_STRING 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarParametroLlamada(TipoDato.STRING); 
+		int lsleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int lsright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object ls = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+                /*pilaSemantica.push(ls.toString());*/ RESULT = new Symbol(-1, ls.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.STRING);
+          
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("_tokens",44, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2164,7 +2285,14 @@ class CUP$Syntax$actions {
           case 134: // tokens_boolean ::= TRUE 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); 
+		int Trueleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int Trueright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object True = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+                RESULT = new Symbol(-1, True.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+           
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tokens_boolean",50, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2173,7 +2301,14 @@ class CUP$Syntax$actions {
           case 135: // tokens_boolean ::= FALSE 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); 
+		int Falseleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int Falseright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object False = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+                RESULT = new Symbol(-1, False.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+            
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tokens_boolean",50, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2186,6 +2321,8 @@ class CUP$Syntax$actions {
 		int idright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
 		Object id = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
 		
+                RESULT = new Symbol(-1, id.toString());
+
                 tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
                 tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
             
@@ -2197,7 +2334,14 @@ class CUP$Syntax$actions {
           case 137: // tokens_boolean ::= NOT TRUE 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); 
+		int ntleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int ntright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object nt = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+                RESULT = new Symbol(-1, nt.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+            
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tokens_boolean",50, ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-1)), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2206,7 +2350,14 @@ class CUP$Syntax$actions {
           case 138: // tokens_boolean ::= NOT FALSE 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN); 
+		int nfleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int nfright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object nf = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+                RESULT = new Symbol(-1, nf.toString());
+
+                tablaSimbolos.agregarParametroLlamada(TipoDato.BOOLEAN);
+            
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tokens_boolean",50, ((java_cup.runtime.Symbol)CUP$Syntax$stack.elementAt(CUP$Syntax$top-1)), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2215,7 +2366,14 @@ class CUP$Syntax$actions {
           case 139: // tipos ::= INT 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarTipoDato(TipoDato.INT); 
+		int ileft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int iright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object i = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+            RESULT = new Symbol(-1, i.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.INT);
+        
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tipos",12, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2224,7 +2382,14 @@ class CUP$Syntax$actions {
           case 140: // tipos ::= SHORTINT 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarTipoDato(TipoDato.SHORTINT); 
+		int sileft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int siright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object si = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+            RESULT = new Symbol(-1, si.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.SHORTINT);
+        
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tipos",12, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2233,7 +2398,14 @@ class CUP$Syntax$actions {
           case 141: // tipos ::= LONGINT 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarTipoDato(TipoDato.LONGINT); 
+		int lileft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int liright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object li = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+            RESULT = new Symbol(-1, li.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.LONGINT);
+        
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tipos",12, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2242,7 +2414,14 @@ class CUP$Syntax$actions {
           case 142: // tipos ::= REAL 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarTipoDato(TipoDato.REAL); 
+		int rleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int rright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object r = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+            RESULT = new Symbol(-1, r.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.REAL);
+        
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tipos",12, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2251,7 +2430,14 @@ class CUP$Syntax$actions {
           case 143: // tipos ::= STRING 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarTipoDato(TipoDato.STRING); 
+		int sleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int sright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object s = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+            RESULT = new Symbol(-1, s.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.STRING);
+        
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tipos",12, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2260,7 +2446,14 @@ class CUP$Syntax$actions {
           case 144: // tipos ::= CHAR 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarTipoDato(TipoDato.CHAR); 
+		int cleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int cright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object c = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+            RESULT = new Symbol(-1, c.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.CHAR);
+        
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tipos",12, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
@@ -2269,7 +2462,14 @@ class CUP$Syntax$actions {
           case 145: // tipos ::= BOOLEAN 
             {
               Symbol RESULT =null;
-		 tablaSimbolos.agregarTipoDato(TipoDato.BOOLEAN); 
+		int bleft = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).left;
+		int bright = ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()).right;
+		Object b = (Object)((java_cup.runtime.Symbol) CUP$Syntax$stack.peek()).value;
+		
+            RESULT = new Symbol(-1, b.toString());
+
+            tablaSimbolos.agregarTipoDato(TipoDato.BOOLEAN);
+        
               CUP$Syntax$result = parser.getSymbolFactory().newSymbol("tipos",12, ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), ((java_cup.runtime.Symbol)CUP$Syntax$stack.peek()), RESULT);
             }
           return CUP$Syntax$result;
