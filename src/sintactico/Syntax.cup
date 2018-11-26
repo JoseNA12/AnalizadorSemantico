@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
 import semantico.Traductor.*;
+import java.util.*;
 // http://www2.cs.tum.edu/projects/cup/docs.php
 // https://www.youtube.com/watch?v=AQkd5AwjV1E
 // http://themfgeek.blogspot.com/2012/10/sintaxis-cup.html
@@ -25,10 +26,10 @@ action code
 {:
     public PilaSemantica pilaSemantica = new PilaSemantica();
     public List<String> miLista = new ArrayList<>();
-    public String miToken = "";
+
 
     public boolean datosGlobales = true;
-    public List<String> variablesDeclaradas = new ArrayList<>();
+    public String mToken = "";
 :}
 
 parser code
@@ -308,7 +309,7 @@ terminal ERROR_IDENTIFICADOR,
 
 // |-------------------- NO TERMINALES --------------------| //
 
-non terminal Symbol inicio, programa, encabezado, cuerpo, _cuerpo, variables, _variables, __variables, ___variables,
+non terminal Symbol inicio, programa, encabezado, cuerpo, _cuerpo, variables, _variables, __variables, ___variables, _wasdvariables,
             constantes, _constantes, __constantes, tipos, declarar_datos, declarar_func_proc, instrucciones,
             declarar_funciones, declarar_procedimientos, asignar_valores_1, asignar_valores_2, parametros_entrada,
             _parametros_entrada, __parametros_entrada, retorno_funcion, expr_aritmeticas, _expr_aritmeticas,
@@ -430,12 +431,9 @@ variables ::= VAR:v _variables
             {:
                 if (datosGlobales)
                 {
-                    pilaSemantica.push_init(v.toString());
-
-                    // Mandar a traducir [eso lo hago yo relax]
-
-                    pilaSemantica.print();
-                    //pilaSemantica.clear();
+                    //pilaSemantica.push_init(v.toString());
+                    // Mandar a traducir -> LO HAGO EN '_variables'
+                    pilaSemantica.clear();
                 }
             :}
             | epsilon
@@ -446,40 +444,61 @@ variables ::= VAR:v _variables
                 :}
                 OPERADOR_PUNTO_Y_COMA ___variables
             ;
-_variables ::= IDENTIFICADOR:id __variables OPERADOR_DOS_PUNTOS:odp tipos:tipo OPERADOR_PUNTO_Y_COMA:oypc ___variables
+_variables ::= IDENTIFICADOR:id __variables:_var OPERADOR_DOS_PUNTOS:odp tipos:tipo OPERADOR_PUNTO_Y_COMA:oypc ___variables
                 {:
                     tablaSimbolos.agregarVariable(id.toString(), idleft, idright);
 
                     if (datosGlobales)
                     {
-                        pilaSemantica.push_init(id.toString());
+                        // Forma en la pila: <tipo> <id_1> <id_ 2> ... <id_3> <;>
 
-                        for (int i = 0; i < variablesDeclaradas.size(); i++)
+                        pilaSemantica.push_end(tipo.value.toString());
+                        pilaSemantica.push_end(odp.toString());
+                        pilaSemantica.push_end(id.toString());
+
+                        if (_var != null) // verifico si se declaró más de una variable en la linea
                         {
-                            pilaSemantica.push_init(variablesDeclaradas.get(i));
+                            String[] lista = (String[]) _var.value;
+
+                            for (int i = 0; i < lista.length; i++)
+                            {
+                                pilaSemantica.push_end(lista[i]);
+                            }
                         }
+                        pilaSemantica.push_end(oypc.toString());
 
-                        pilaSemantica.push_init(odp.toString());
-                        pilaSemantica.push_init(tipo.value.toString());
-                        pilaSemantica.push_init(oypc.toString());
-
-                        variablesDeclaradas.clear(); // reutilizar la lista para el caso siguiente
+                        agregarCodigoEnsamblador(Generador.DeclaracionesVariables(pilaSemantica));
+                        pilaSemantica.clear();
                     }
                 :};
-__variables ::= OPERADOR_COMA:oc IDENTIFICADOR:id __variables
+__variables ::= OPERADOR_COMA:oc IDENTIFICADOR:id __variables:ciclo_loco
                 {:
                     tablaSimbolos.agregarVariableSinTipo(id.toString(), idleft, idright);
 
                     if (datosGlobales)
                     {
-                        variablesDeclaradas.add(oc.toString());
-                        variablesDeclaradas.add(id.toString());
-                        //pilaSemantica.push_init(oc.toString());
-                        //pilaSemantica.push_init(id.toString());
+                        if (ciclo_loco != null) // obtener los identificadores respectivos de la linea cuando se declaran varios
+                        {
+                            String[] listaTemp2 = (String[]) ciclo_loco.value;
+                            // ---add----
+                            listaTemp2  = Arrays.copyOf(listaTemp2, listaTemp2.length + 1);
+                            listaTemp2[listaTemp2.length - 1] = id.toString();
+                            // -----------
+
+                            RESULT = new Symbol(-1, listaTemp2);
+                        }
+                        else
+                        {   //Primera vez que inserta
+                            String[] listaTemp = {id.toString()};
+                            RESULT = new Symbol(-1, listaTemp);
+                        }
                     }
                 :}
-                | epsilon;
-___variables ::= _variables | epsilon;
+                | epsilon
+                ;
+
+___variables ::= _variables
+              | epsilon;
 
 declarar_func_proc ::= declarar_funciones declarar_func_proc
                      | declarar_procedimientos declarar_func_proc

@@ -3,6 +3,8 @@ package semantico.Traductor;
 import sintactico.sym;
 
 import java.io.PrintStream;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.List;
 
 // https://codemyn.blogspot.com/2017/09/operaciones-aritmeticas-en-assembler.html
@@ -70,12 +72,68 @@ public class Generador {
         return traduccion;
     }
 
-    public static String Declaraciones(PilaSemantica pPila, boolean esConstante)
+    public static String DeclaracionesVariables(PilaSemantica pPila)
     {
-        String resultado = "";
+        // Se recibe de la forma:
+        // <tipo> <:> <var_1> ... <var_n> <;>
 
+        String traduccion = "";
+        List<String> variables = new ArrayList<>();
 
-        return resultado;
+        while (!pPila.isEmpty())
+        {
+            pPila.pop_end(); // sacar ';'
+
+            String temp = pPila.pop_end().getValor();
+
+            while (!temp.equals(":"))
+            {
+                variables.add(temp);
+                temp = pPila.pop_end().getValor();
+            }
+
+            String tipo = pPila.pop_end().getValor();
+
+            switch (tipo.toUpperCase())
+            {
+                case "INT":
+                    for (int i = 0; i < variables.size(); i++)
+                    {
+                        traduccion += variables.get(i) + " dw " + "?" + "\n";
+                    }
+                    break;
+
+                case "LONGINT":
+                    for (int i = 0; i < variables.size(); i++)
+                    {
+                        traduccion += variables.get(i) + " dq " + "?" + "\n";
+                    }
+                    break;
+
+                case "REAL":
+                    for (int i = 0; i < variables.size(); i++)
+                    {
+                        traduccion += variables.get(i) + " dd " + "?" + "\n";
+                    }
+                    break;
+
+                case "BOOLEAN":
+                    for (int i = 0; i < variables.size(); i++)
+                    {
+                        traduccion += variables.get(i) + " db " + "0" + "\n";
+                    }
+                    break;
+
+                default:
+                    for (int i = 0; i < variables.size(); i++)
+                    {
+                        traduccion += variables.get(i) + " db " + "?" + "\n";
+                    }
+                    break;
+            }
+        }
+
+        return traduccion;
     }
 
 	public static void gc(int operacion, String arg1, String arg2, String resultado) {
