@@ -24,9 +24,11 @@ import semantico.*;
 action code
 {:
     public PilaSemantica pilaSemantica = new PilaSemantica();
-    public DTO miDTO = new DTO();
     public List<String> miLista = new ArrayList<>();
     public String miToken = "";
+
+    public boolean datosGlobales = true;
+    public List<String> variablesDeclaradas = new ArrayList<>();
 :}
 
 parser code
@@ -239,6 +241,12 @@ parser code
         //este simpre se traslapa entre producciones >:v
         tablaSimbolos.limpiarParametrosLlamada();
     }
+
+
+    public void agregarCodigoEnsamblador(String pCodigo)
+    {
+        Main.miInstancia.agregarCodigoEnsamblador(pCodigo);
+    }
 :}
 
 // |-------------------- TERMINALES --------------------| //
@@ -374,35 +382,101 @@ declarar_datos ::= constantes variables
                     }
                     //limpia la lista de variables para ser usada luego
                     tablaSimbolos.variables = new ArrayList<>();
+
+                    datosGlobales = false; // evitar los push de las variables y constantes en funciones y procs
+                    pilaSemantica.clear(); // evitar basura en la pila
                 :};
 
 //Esta es para ponerle el ámbito a cada variable dentro de la función/procedimiento
-declarar_datos_locales ::= constantes variables;
+declarar_datos_locales ::= constantes variables {: pilaSemantica.clear(); :}
+                        ;
 
-constantes ::= CONST _constantes | epsilon
+constantes ::= CONST:c _constantes
+                {:
+                    if (datosGlobales)
+                    {
+                        pilaSemantica.push_init(c.toString());
+
+                        // Mandar a traducir, [eso lo hago yo relax]
+                        //pilaSemantica.print();
+
+                        pilaSemantica.clear();
+                    }
+                :}
+            | epsilon
             | CONST error
                 {:
                     report_error("Declaración de constante", tokenError);
                     RESULT = new Symbol(-1);
                 :}
-                OPERADOR_PUNTO_Y_COMA __constantes;
-_constantes ::= IDENTIFICADOR OPERADOR_ASIGNACION_2 tokens OPERADOR_PUNTO_Y_COMA __constantes;
+                OPERADOR_PUNTO_Y_COMA __constantes
+            ;
+_constantes ::= IDENTIFICADOR:id OPERADOR_ASIGNACION_2:oa_2 tokens:tok OPERADOR_PUNTO_Y_COMA:opc __constantes
+                {:
+                    if (datosGlobales)
+                    {
+                        pilaSemantica.pop_end(); // quitar el push de tokens
+
+                        pilaSemantica.push_init(id.toString());
+                        pilaSemantica.push_init(oa_2.toString());
+                        pilaSemantica.push_init(tok.value.toString());
+                        pilaSemantica.push_init(opc.toString());
+                    }
+                :}
+            ;
 __constantes ::= _constantes | epsilon;
 
-variables ::= VAR _variables | epsilon
+variables ::= VAR:v _variables
+            {:
+                if (datosGlobales)
+                {
+                    pilaSemantica.push_init(v.toString());
+
+                    // Mandar a traducir [eso lo hago yo relax]
+
+                    pilaSemantica.print();
+                    //pilaSemantica.clear();
+                }
+            :}
+            | epsilon
             | VAR error
                 {:
                     report_error("Declaración de variable", tokenError);
                     RESULT = new Symbol(-1);
                 :}
-                OPERADOR_PUNTO_Y_COMA ___variables;
-_variables ::= IDENTIFICADOR:id __variables OPERADOR_DOS_PUNTOS tipos:tipo OPERADOR_PUNTO_Y_COMA ___variables
+                OPERADOR_PUNTO_Y_COMA ___variables
+            ;
+_variables ::= IDENTIFICADOR:id __variables OPERADOR_DOS_PUNTOS:odp tipos:tipo OPERADOR_PUNTO_Y_COMA:oypc ___variables
                 {:
                     tablaSimbolos.agregarVariable(id.toString(), idleft, idright);
+
+                    if (datosGlobales)
+                    {
+                        pilaSemantica.push_init(id.toString());
+
+                        for (int i = 0; i < variablesDeclaradas.size(); i++)
+                        {
+                            pilaSemantica.push_init(variablesDeclaradas.get(i));
+                        }
+
+                        pilaSemantica.push_init(odp.toString());
+                        pilaSemantica.push_init(tipo.value.toString());
+                        pilaSemantica.push_init(oypc.toString());
+
+                        variablesDeclaradas.clear(); // reutilizar la lista para el caso siguiente
+                    }
                 :};
-__variables ::= OPERADOR_COMA IDENTIFICADOR:id __variables
+__variables ::= OPERADOR_COMA:oc IDENTIFICADOR:id __variables
                 {:
                     tablaSimbolos.agregarVariableSinTipo(id.toString(), idleft, idright);
+
+                    if (datosGlobales)
+                    {
+                        variablesDeclaradas.add(oc.toString());
+                        variablesDeclaradas.add(id.toString());
+                        //pilaSemantica.push_init(oc.toString());
+                        //pilaSemantica.push_init(id.toString());
+                    }
                 :}
                 | epsilon;
 ___variables ::= _variables | epsilon;
@@ -509,8 +583,18 @@ instrucciones ::= asignar_valores_1         //Los parametros de llamada siempre 
                      :}
                      OPERADOR_PUNTO_Y_COMA;
 
-asignar_valores_1 ::= IDENTIFICADOR:id OPERADOR_ASIGNACION_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA // a := 12, a := b() + 3 - (4/d)..., f(...)
+asignar_valores_1 ::= IDENTIFICADOR:id OPERADOR_ASIGNACION_1:op_1 expr_aritmeticas OPERADOR_PUNTO_Y_COMA // a := 12, a := b() + 3 - (4/d)..., f(...)
                     {:
+                        pilaSemantica.push_init(op_1.toString());
+                        pilaSemantica.push_init(id.toString());
+
+                        if(pilaSemantica.size() == 5) // 5 -> cantidad de operandos para la expresion binaria
+                        {
+                            agregarCodigoEnsamblador(Generador.ExpresionesAritmeticas(pilaSemantica));
+                        }
+
+                        pilaSemantica.clear();
+
                         tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
                     :};
 asignar_valores_2 ::= IDENTIFICADOR:id ___operadores_aritmeticos expr_aritmeticas // a += 12
@@ -615,11 +699,11 @@ sentencia_for ::= FOR IDENTIFICADOR OPERADOR_ASIGNACION_1 tokens TO tokens DO
 
 // ------------------------------ Expresiones --------------------------------------------------------------------------
 
-expr_aritmeticas ::= tokens:_tk /*{: miToken = _tk.value.toString(); RESULT = new Symbol(-1, _tk.value); :}*/ _expr_aritmeticas /*{: RESULT = new Symbol(-1, miToken); :}*/
+expr_aritmeticas ::= tokens _expr_aritmeticas
                     | llamar_func_o_proc _expr_aritmeticas
-                    | OPERADOR_PARENTESIS_ABRIR expr_aritmeticas:ea OPERADOR_PARENTESIS_CERRAR /*{: RESULT = new Symbol(-1, ea.value); :}*/ _expr_aritmeticas;
+                    | OPERADOR_PARENTESIS_ABRIR expr_aritmeticas OPERADOR_PARENTESIS_CERRAR _expr_aritmeticas;
 
-_expr_aritmeticas ::= _operadores_aritmeticos expr_aritmeticas:ea /*{: RESULT = new Symbol(-1, ea.value); :}*/
+_expr_aritmeticas ::= _operadores_aritmeticos expr_aritmeticas
                     | epsilon;
 
 expr_booleanas ::= tokens_boolean _expr_booleanas
@@ -631,12 +715,12 @@ _expr_booleanas ::= AND expr_booleanas | OR expr_booleanas | epsilon;
 // ------------------------------ Símbolos -----------------------------------------------------------------------------
 
 operadores_aritmeticos ::= _operadores_aritmeticos | __operadores_aritmeticos | ___operadores_aritmeticos;
-_operadores_aritmeticos ::= OPERADOR_ADICION:oa        {: /*pilaSemantica.push(oa.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_ADICION); miDTO.setOperador(sym.OPERADOR_ADICION); :}
-                          | OPERADOR_SUSTRACCION:os    {: /*pilaSemantica.push(os.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_SUSTRACCION); miDTO.setOperador(sym.OPERADOR_SUSTRACCION); :}
-                          | OPERADOR_MULTIPLICACION:om {: /*pilaSemantica.push(om.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_MULTIPLICACION); miDTO.setOperador(sym.OPERADOR_MULTIPLICACION); :}
-                          | OPERADOR_DIVISION:od       {: /*pilaSemantica.push(od.toString());*/ RESULT = new Symbol(-1, (Object) sym.OPERADOR_DIVISION); miDTO.setOperador(sym.OPERADOR_DIVISION); :}
-                          | MOD:mod                    {: /*pilaSemantica.push(mod.toString());*/ RESULT = new Symbol(-1, (Object) sym.MOD); miDTO.setOperador(sym.MOD); :}
-                          | DIV:div                    {: /*pilaSemantica.push(div.toString());*/ RESULT = new Symbol(-1, (Object) sym.DIV); miDTO.setOperador(sym.DIV); :}
+_operadores_aritmeticos ::= OPERADOR_ADICION:oa        {: pilaSemantica.push_end(oa.toString()); :}
+                          | OPERADOR_SUSTRACCION:os    {: pilaSemantica.push_end(os.toString()); :}
+                          | OPERADOR_MULTIPLICACION:om {: pilaSemantica.push_end(om.toString()); :}
+                          | OPERADOR_DIVISION:od       {: pilaSemantica.push_end(od.toString()); :}
+                          | MOD:mod                    {: pilaSemantica.push_end(mod.toString()); :}
+                          | DIV:div                    {: pilaSemantica.push_end(div.toString()); :}
                           ;
 __operadores_aritmeticos ::= OPERADOR_INCREMENTO:oi {: RESULT = new Symbol(-1, oi.toString()); :}
                           | OPERADOR_DISMINUCION:od {: RESULT = new Symbol(-1, od.toString()); :}
@@ -654,30 +738,35 @@ operadores_booleanos ::= OPERADOR_MAYOR_QUE:omaq         {: RESULT = new Symbol(
 
 operadores_booleanos_1 ::= operadores_booleanos | OPERADOR_ASIGNACION_2;
 
-tokens ::= _tokens:tk {: RESULT = new Symbol(-1, tk.value); :}
-        | tokens_boolean;
+tokens ::= _tokens:_to {: RESULT = new Symbol(-1, _to.value); :}
+        | tokens_boolean
+        ;
 _tokens ::= IDENTIFICADOR:id
             {:
-                /*pilaSemantica.push(id.toString());*/ RESULT = new Symbol(-1, id.toString());
+                pilaSemantica.push_end(id.toString());
+                RESULT = new Symbol(-1, id.toString());
 
                 tablaSimbolos.agregarParametroLlamada(id.toString());
                 tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
             :}
         | LITERAL_NUM_ENTERO:lne
           {:
-                /*pilaSemantica.push(lne.toString());*/ RESULT = new Symbol(-1, lne.toString());
+                pilaSemantica.push_end(lne.toString());
+                RESULT = new Symbol(-1, lne.toString());
 
                 tablaSimbolos.agregarParametroLlamada(TipoDato.INT);
           :}
         | LITERAL_NUM_FLOTANTE:lnf
           {:
-                /*pilaSemantica.push(lnf.toString());*/ RESULT = new Symbol(-1, lnf.toString());
+                pilaSemantica.push_end(lnf.toString());
+                RESULT = new Symbol(-1, lnf.toString());
 
                 tablaSimbolos.agregarParametroLlamada(TipoDato.REAL);
           :}
         | LITERAL_STRING:ls
           {:
-                /*pilaSemantica.push(ls.toString());*/ RESULT = new Symbol(-1, ls.toString());
+                pilaSemantica.push_end(ls.toString());
+                RESULT = new Symbol(-1, ls.toString());
 
                 tablaSimbolos.agregarParametroLlamada(TipoDato.STRING);
           :}

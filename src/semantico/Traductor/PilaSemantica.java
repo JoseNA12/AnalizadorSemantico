@@ -43,7 +43,7 @@ public class PilaSemantica {
         return pilaSemantica.isEmpty();
     }
 
-    public void empty()
+    public void clear()
     {
         pilaSemantica.clear();
     }
