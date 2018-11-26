@@ -384,6 +384,10 @@ public class Main extends Application implements Cloneable  {
         ta_errores_semanticos_id.clear();
         ta_tabla_simbolos_id.clear();
         ta_codigo_ensamblador_id.clear();
+
+        File file = new File("src/semantico/Traductor/Traduccion.asm");
+        if(file.delete()) { /* Eliminado */}
+        else { /* No se pudo eliminar (no existe) */ }
     }
 
     /**
@@ -462,6 +466,16 @@ public class Main extends Application implements Cloneable  {
     public void agregarCodigoEnsamblador(String pCodigo)
     {
         ta_codigo_ensamblador_id.appendText(pCodigo + "\n" );
+
+        try
+        {
+            BufferedWriter out = new BufferedWriter(new FileWriter("src/semantico/Traductor/Traduccion.asm", true));
+            pCodigo += "\n";
+            out.write(pCodigo);
+            out.close();
+        }
+        catch (IOException e) { e.printStackTrace(); }
+
     }
 
     // ============================ CodeArea ============================ \\
