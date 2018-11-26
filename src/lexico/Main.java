@@ -383,6 +383,7 @@ public class Main extends Application implements Cloneable  {
         ta_errores_sintacticos_id.clear();
         ta_errores_semanticos_id.clear();
         ta_tabla_simbolos_id.clear();
+        ta_codigo_ensamblador_id.clear();
     }
 
     /**
@@ -451,12 +452,17 @@ public class Main extends Application implements Cloneable  {
 
     public void agregarErrorSintactico(String pError)
     {
-        ta_errores_sintacticos_id.appendText("\n" + pError);
+        ta_errores_sintacticos_id.appendText(pError + "\n");
     }
 
-    public void agregarErrorSemantico(String pError) { ta_errores_semanticos_id.appendText("\n" + pError); }
+    public void agregarErrorSemantico(String pError) { ta_errores_semanticos_id.appendText(pError + "\n" ); }
 
-    public void mostrarTablaSimbolos(String texto) { ta_tabla_simbolos_id.appendText("\n" + texto); }
+    public void mostrarTablaSimbolos(String texto) { ta_tabla_simbolos_id.appendText(texto + "\n" ); }
+
+    public void agregarCodigoEnsamblador(String pCodigo)
+    {
+        ta_codigo_ensamblador_id.appendText(pCodigo + "\n" );
+    }
 
     // ============================ CodeArea ============================ \\
 

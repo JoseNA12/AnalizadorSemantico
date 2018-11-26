@@ -6,51 +6,36 @@ import java.util.Stack;
 
 public class PilaSemantica {
 
-    private Stack<RegistroSemantico> pilaSemantica;
-    //private List<RegistroSemantico> pilaSemantica;
-    //private int tope = -1;
+    private List<RegistroSemantico> pilaSemantica;
 
 
     public PilaSemantica()
     {
-        pilaSemantica = new Stack<>();
-        //pilaSemantica = new ArrayList<>();
+        pilaSemantica = new ArrayList<>();
     }
 
-    public void push(int operacion, String valor)
+    public void push_init(String valor)
     {
-        pilaSemantica.push(new RegistroSemantico(operacion, valor));
-        //pilaSemantica.add(0, new RegistroSemantico(operacion, valor));
-        //tope++;
+        pilaSemantica.add(0, new RegistroSemantico(valor));
     }
 
-    public void push(String valor)
+    public void push_end(String valor)
     {
-        pilaSemantica.push(new RegistroSemantico(-1, valor));
-        //pilaSemantica.add(0, new RegistroSemantico(-1, valor));
-        //tope++;
+        pilaSemantica.add(pilaSemantica.size(), new RegistroSemantico(valor));
     }
 
-    public void push(int operacion)
+    public RegistroSemantico pop_init() // saca el primero de la lista
     {
-        pilaSemantica.push(new RegistroSemantico(operacion, null));
-        //pilaSemantica.add(0, new RegistroSemantico(operacion, null));
-        //tope++;
+        RegistroSemantico temp = pilaSemantica.get(0);
+        pilaSemantica.remove(0);
+        return temp;
     }
 
-    public RegistroSemantico pop()
+    public RegistroSemantico pop_end() // el pop típico que saca el último o el tope
     {
-        return pilaSemantica.pop();
-        /*RegistroSemantico temp = peek();
-        pilaSemantica.remove(tope);
-        tope--;
-        return temp;*/
-    }
-
-    public RegistroSemantico peek()
-    {
-        return pilaSemantica.peek();
-        //return pilaSemantica.get(tope);
+        RegistroSemantico temp = pilaSemantica.get(pilaSemantica.size() - 1);
+        pilaSemantica.remove(pilaSemantica.size() - 1);
+        return temp;
     }
 
     public Boolean isEmpty()
@@ -60,7 +45,20 @@ public class PilaSemantica {
 
     public void empty()
     {
-        pilaSemantica.empty();
-        //pilaSemantica.clear();
+        pilaSemantica.clear();
     }
+
+    public int size()
+    {
+        return pilaSemantica.size();
+    }
+
+    public void print()
+    {
+        for(int i = 0; i < pilaSemantica.size(); i++)
+        {
+            System.out.println(pilaSemantica.get(i));
+        }
+    }
+
 }

@@ -8,8 +8,8 @@ public class RegistroSemantico {
     private String valor;
 
 
-    public RegistroSemantico(int operacion, String valor) {
-        this.operacion = operacion;
+    public RegistroSemantico(String valor) {
+        this.operacion = -1;
         this.valor = valor;
     }
 
