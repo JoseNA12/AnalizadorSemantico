@@ -81,7 +81,7 @@ public class Generador {
         return traduccion;
     }
 
-    public static String ExpresionesAritmeticas_(PilaSemantica pPila) // true-> a++ | false -> ++a
+    public static String ExpresionesAritmeticas_(PilaSemantica pPila) // a++ | false -> ++a
     {
         String traduccion = "";
 
@@ -104,7 +104,7 @@ public class Generador {
         return traduccion;
     }
 
-    public static String ExpresionesAritmeticas__(PilaSemantica pPila)
+    public static String ExpresionesAritmeticas__(PilaSemantica pPila) // a := b++ | a := --b
     {
         String traduccion = "";
         // <id> <id> <++>
@@ -252,47 +252,6 @@ public class Generador {
         String sopaDeMacaco = pilaEnd.pollLast();
         String upa = "jmp " + "startWhile_" + sopaDeMacaco + " \n" + "exitWhile_" + sopaDeMacaco + ":\n";
         return upa;
-    }
-
-	public static void gc(int operacion, String arg1, String arg2, String resultado) {
-
-        switch (operacion) {
-            case sym.OPERADOR_ADICION:
-                out.println("   " + resultado + " = " + arg1 + " + " + arg2 + ";");
-                break;
-
-            case sym.OPERADOR_SUSTRACCION:
-                out.println("   " + resultado + " = " + arg1 + " - " + arg2 + ";");
-                break;
-
-            case sym.OPERADOR_MULTIPLICACION:
-                out.println("   " + resultado + " = " + arg1 + " * " + arg2 + ";");
-                break;
-
-            case sym.OPERADOR_DIVISION:
-                out.println("   " + resultado + " = " + arg1 + " / " + arg2 + ";");
-                break;
-
-            case sym.OPERADOR_ASIGNACION_1:
-                out.println("   " + resultado + " = " + arg1 + ";");
-                break;
-
-            case sym.IF:
-                out.println("   if (" + arg1 + " == " + arg2 + ") goto " + resultado + ";");
-                break;
-
-            case GOTO:
-                out.println("   goto " + resultado + ";");
-                break;
-
-            case LABEL:
-                out.println(resultado + ":");
-                break;
-
-            default:
-                System.err.println("Error en la generación de código");
-        }
-
     }
 
     private static String getSalto(String operador){
