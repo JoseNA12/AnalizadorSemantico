@@ -386,6 +386,7 @@ public class Main extends Application implements Cloneable  {
         ta_tabla_simbolos_id.clear();
         ta_codigo_ensamblador_id.clear();
         Generador.contadorEtiq = 1;
+        Generador.etiqAnterior = "L0";
         EliminarArchivoASM();
     }
 

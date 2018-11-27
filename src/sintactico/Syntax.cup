@@ -29,8 +29,6 @@ action code
 
     public boolean datosGlobales = true;
 
-    public boolean dentroDeIf = false;
-    public List<String> puta = new ArrayList<>();
 :}
 
 parser code
@@ -606,8 +604,7 @@ cuerpo ::= cuerpo instrucciones
 _cuerpo ::= cuerpo | epsilon;
 
 instrucciones ::= asignar_valores_1         //Los parametros de llamada siempre se traslapan entre estas cosas >:v
-                    {: tablaSimbolos.limpiarParametrosLlamada();
-                     :}
+                    {: tablaSimbolos.limpiarParametrosLlamada(); :}
                 | asignar_valores_2 OPERADOR_PUNTO_Y_COMA
                     {: tablaSimbolos.limpiarParametrosLlamada(); :}
                 | expr_read_write
@@ -623,10 +620,6 @@ instrucciones ::= asignar_valores_1         //Los parametros de llamada siempre 
 
 asignar_valores_1 ::= IDENTIFICADOR:id OPERADOR_ASIGNACION_1:op_1 expr_aritmeticas:exp OPERADOR_PUNTO_Y_COMA // a := 12, a := b() + 3 - (4/d)..., f(...)
                     {:
-                        if (dentroDeIf) {
-                            agregarCodigoEnsamblador("Picha");
-                        }
-
                         pilaSemantica.push_init(op_1.toString());
                         pilaSemantica.push_init(id.toString());
 
@@ -648,7 +641,7 @@ asignar_valores_2 ::= IDENTIFICADOR:id ___operadores_aritmeticos expr_aritmetica
                         pilaSemantica.push_init(__oa.value.toString());
                         pilaSemantica.push_init(id.toString());
 
-                        agregarCodigoEnsamblador(Generador.ExpresionesAritmeticas_(pilaSemantica, true));
+                        agregarCodigoEnsamblador(Generador.ExpresionesAritmeticas_(pilaSemantica));
 
                         pilaSemantica.clear();
 
@@ -659,19 +652,32 @@ asignar_valores_2 ::= IDENTIFICADOR:id ___operadores_aritmeticos expr_aritmetica
                         pilaSemantica.push_init(__oa.value.toString());
                         pilaSemantica.push_init(id.toString());
 
-                        agregarCodigoEnsamblador(Generador.ExpresionesAritmeticas_(pilaSemantica, false));
-
+                        agregarCodigoEnsamblador(Generador.ExpresionesAritmeticas_(pilaSemantica));
                         pilaSemantica.clear();
 
                         tablaSimbolos.agregarVariableUsada(id.toString(), idleft, idright);
                     :}
-                    | IDENTIFICADOR:id1 OPERADOR_ASIGNACION_1 IDENTIFICADOR:id2 __operadores_aritmeticos // a := b++
+                    | IDENTIFICADOR:id1 OPERADOR_ASIGNACION_1 IDENTIFICADOR:id2 __operadores_aritmeticos:_oa // a := b++
                     {:
+                        pilaSemantica.push_init(_oa.value.toString());
+                        pilaSemantica.push_init(id2.toString());
+                        pilaSemantica.push_init(id1.toString());
+
+                        agregarCodigoEnsamblador(Generador.ExpresionesAritmeticas__(pilaSemantica));
+                        pilaSemantica.clear();
+
                         tablaSimbolos.agregarVariableUsada(id1.toString(), id1left, id1right);
                         tablaSimbolos.agregarVariableUsada(id2.toString(), id2left, id2right);
                     :}
-                    | IDENTIFICADOR:id1 OPERADOR_ASIGNACION_1 __operadores_aritmeticos IDENTIFICADOR:id2 // a := ++b
+                    | IDENTIFICADOR:id1 OPERADOR_ASIGNACION_1 __operadores_aritmeticos:_oa IDENTIFICADOR:id2 // a := ++b
                     {:
+                        pilaSemantica.push_init(_oa.value.toString());
+                        pilaSemantica.push_init(id2.toString());
+                        pilaSemantica.push_init(id1.toString());
+
+                        agregarCodigoEnsamblador(Generador.ExpresionesAritmeticas__(pilaSemantica));
+                        pilaSemantica.clear();
+
                         tablaSimbolos.agregarVariableUsada(id1.toString(), id1left, id1right);
                         tablaSimbolos.agregarVariableUsada(id2.toString(), id2left, id2right);
                     :};
@@ -719,20 +725,14 @@ estruc_de_control ::= sentencia_if
 
 pre_sentencia_if ::= THEN
                 {:
-                    //pilaSemantica_2.print();
-                    //agregarCodigoEnsamblador(Generador.etiqAnterior);
                     agregarCodigoEnsamblador(Generador.EstrucControl_IF(pilaSemantica_2));
-                    //puta.add();
-
-                    dentroDeIf = true;
-
                     pilaSemantica_2.clear();
                  :}
                  ;
 sentencia_if ::= IF expr_booleanas pre_sentencia_if // THEN
                  _cuerpo _sentencia_if
                  END
-                 {: dentroDeIf = false; :}
+                 {: agregarCodigoEnsamblador(Generador.EstrucControl_END()); :}
                  | IF error
                      {:
                          report_error("Sentencia IF", tokenError);
@@ -744,12 +744,13 @@ _sentencia_if ::= sentencia_else
                | epsilon
                ;
 
-pre_sentencia_else ::= ELSE
+pre_sentencia_else ::= ELSE {: agregarCodigoEnsamblador(Generador.EstrucControl_IF_ELSE()); :}
                     ;
 sentencia_else ::= pre_sentencia_else _cuerpo; // ELSE _cuerpo;
 
 pre_sentencia_while ::= DO
                     {:
+                        agregarCodigoEnsamblador(Generador.EstrucControl_WHILE(pilaSemantica_2));
                         pilaSemantica_2.clear();
                      :}
                      ;
@@ -758,6 +759,7 @@ sentencia_while ::= WHILE expr_booleanas pre_sentencia_while //DO
                     _cuerpo
                     END
                     {:
+                        agregarCodigoEnsamblador(Generador.UltimosLabelsWhile());
                         pilaSemantica_2.clear();
                     :}
                     | WHILE error
