@@ -220,7 +220,7 @@ Se cuenta con 2 tipos de comentarios:
 *)
 ```
 
-### Interfaz de Usuario
+## Interfaz de Usuario
 
 Se cuenta con un TextArea donde el usuario es posible ingresar el código respectivo a analizar. Además, existe un apartado con una serie de *tabs* donde es posible observar los tokens encontrados, los errores léxicos, los errores sintáctivos, los errores semánticos, la tabla de símbolos y finalmente, la traducción del lenguaje ABC a lenguaje ensamblador.
 
@@ -246,6 +246,6 @@ Se muestra la traducción de estructuras de control *IF* y *WHILE*, declaracione
 * **José Navarro** - [JoseNA12](https://github.com/JoseNA12)
 * **Greivin Berrocal** - [berrocal9470](https://github.com/berrocal9470)
 
-Instituto Tecnológico de Costa Rica.
+* *Instituto Tecnológico de Costa Rica.*
 
-27/11/2018.
+* *27/11/2018.*
