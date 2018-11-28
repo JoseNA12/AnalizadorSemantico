@@ -222,7 +222,7 @@ Se cuenta con 2 tipos de comentarios:
 
 ### Interfaz de Usuario
 
-Se cuenta con un TextArea donde el usuario es posible ingresar el código respectivo a analizar. Además, un apartado con una serie de *tabs* donde es posible observar los tokens encontrados, los errores léxicos, los errores sintáctivos, los errores semánticos, la tabla de símbolos y finalmente, la traducción del lenguaje ABC a lenguaje ensamblador.
+Se cuenta con un TextArea donde el usuario es posible ingresar el código respectivo a analizar. Además, existe un apartado con una serie de *tabs* donde es posible observar los tokens encontrados, los errores léxicos, los errores sintáctivos, los errores semánticos, la tabla de símbolos y finalmente, la traducción del lenguaje ABC a lenguaje ensamblador.
 
 **Token encontrados**:
 
@@ -235,7 +235,7 @@ Se especifica el token o identificador que ocasiona el error, donde se incluye l
 **Tabla de símbolos**
 
 Muestra el tipo de identificador o token, además del nombre dentro del código.
-En lo que respecta funciones y procedimientos, se detalla su tipo (si es función o procedimiento) el tipo de retorno (si es procedimiento es *null*), y las cantidad de parametros que recibe, especificando la respectiva información de dichos parametros de entrada; el nombre y su tipo de dato.
+En lo que respecta funciones y procedimientos, se detalla su tipo (si es función o procedimiento) el tipo de retorno (si es procedimiento es *null*), y la cantidad de parametros que recibe, especificando la respectiva información de dichos parametros de entrada; el nombre y su tipo de dato.
 
 **Traducción**
 
@@ -245,5 +245,7 @@ Se muestra la traducción de estructuras de control *IF* y *WHILE*, declaracione
 
 * **José Navarro** - [JoseNA12](https://github.com/JoseNA12)
 * **Greivin Berrocal** - [berrocal9470](https://github.com/berrocal9470)
-27/11/2018.
 
+Instituto Tecnológico de Costa Rica.
+
+27/11/2018.
